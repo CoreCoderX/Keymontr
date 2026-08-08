@@ -1,0 +1,9 @@
+{
+  "name": "jfrog-api-key",
+  "keywords": [
+    "jfrog",
+    "artifactory",
+    "bintray",
+    "xray"
+  ]
+}

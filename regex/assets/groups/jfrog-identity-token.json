@@ -1,0 +1,9 @@
+{
+  "name": "jfrog-identity-token",
+  "keywords": [
+    "jfrog",
+    "artifactory",
+    "bintray",
+    "xray"
+  ]
+}

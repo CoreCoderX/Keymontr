@@ -1,0 +1,15 @@
+{
+  "name": "generic-api-key",
+  "keywords": [
+    "access",
+    "api",
+    "auth",
+    "key",
+    "credential",
+    "creds",
+    "passwd",
+    "password",
+    "secret",
+    "token"
+  ]
+}
