@@ -1,8 +1,20 @@
-# SecureShield IDE — Changelog
+# Keymontr — Changelog
 
 All notable changes to this project are documented in this file.
 
-## [1.0.0] — Initial Release
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Planned
+- Marketplace publication
+- Multi-root workspace support
+- Team-shared allowlist sync (org rules)
+- Pre-push hook option in addition to pre-commit
+- Git history scanning for existing exposures
+
+## [0.1.0] — 2026-08-16
 
 ### Added
 
@@ -30,6 +42,7 @@ All notable changes to this project are documented in this file.
 - DB2: StringGroup identifier database (374 groups, ~94k identifier keywords)
 - Keyword collision resolver for DB1's 37 shared keywords
 - Lazy loader for per-group files
+- Flat `keyword -> group` index enabling O(1) pre-filter lookups
 
 #### VS Code Integration
 - Real-time detection while typing (debounced, 300ms default)
@@ -37,7 +50,7 @@ All notable changes to this project are documented in this file.
 - Diagnostic underlines with severity-mapped colors
 - Quick Fix code actions: Fix Now, Mark as Safe, Ignore Once
 - Hover tooltips with full confidence breakdown and detection signals
-- File decorations (🔴🟠🟡🟢🔵) in Explorer sidebar
+- File decorations in the Explorer sidebar
 - Status bar indicator with finding count and highest severity
 - Sidebar tree view grouped by severity
 - Security dashboard webview with statistics, history, and database health
@@ -48,7 +61,7 @@ All notable changes to this project are documented in this file.
 - Language-aware code replacement (TypeScript, Python, Go, Ruby, PHP, Java, C#, Rust)
 - Automatic .gitignore update with recommended entries
 - .env.example generation with placeholder values
-- Inline suppression comment support (// secureshield-ignore)
+- Inline suppression comment support (`keymontr-ignore`, `keymontr-disable-file`)
 
 #### Git Protection
 - Pre-commit hook installer (direct Git hooks and Husky integration)
@@ -58,22 +71,39 @@ All notable changes to this project are documented in this file.
 - Fail-open design (scanner errors do not block commits)
 
 #### Configuration
-- .secureshield.json with JSON schema validation
+- `.keymontr.json` with JSON schema validation
 - Configurable detection weights, thresholds, and sensitivity
 - Custom rule definitions for organization-specific secrets
 - Path/pattern/stopword ignore lists
-- Remediation preferences
+- Remediation preferences (auto-create .env, .gitignore, .env.example)
+- UI preferences (sounds, status bar, file decorations, inline severity icons)
 
 #### AI Assistant Detection
 - Informational notice when GitHub Copilot, Codeium, Tabnine, or other AI
   assistants are detected (informational only, no interference)
 
+#### Severity Model
+- Five severity levels: informational, low, medium, high, critical
+- Confidence-to-severity mapping with configurable thresholds
+- Severity-aware commit blocking rules
+
 ### Supported Languages
+
 TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby,
-YAML, JSON, TOML, Shell scripts, .env files
+YAML, JSON, TOML, Shell scripts, `.env` files
 
 ### Supported Secret Types
+
 AWS, Azure, Google Cloud, OpenAI, Anthropic, Stripe, PayPal,
 GitHub, GitLab, Slack, Discord, Twilio, SendGrid, Firebase,
 Supabase, JWT, RSA/EC private keys, database connection strings,
-and 200+ more via Gitleaks ruleset
+and 200+ more via the Gitleaks ruleset
+
+### Notes
+
+- Initial release. All 8 gates and 5 layers are fully implemented and tested.
+- StringGroup Engine is based on the research paper
+  "Checked-In Secret Detection: Strings Are All You Need" (Huang et al., 2026).
+
+[Unreleased]: https://github.com/CoreCoderX/Keymontr/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/CoreCoderX/Keymontr/releases/tag/v0.1.0
