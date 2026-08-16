@@ -1,0 +1,177 @@
+{
+  "name": "keymontr",
+  "displayName": "Keymontr",
+  "description": "Intelligent secret detection and prevention for developers.",
+  "version": "0.1.0",
+  "publisher": "CoreCoderX",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "vscode": "^1.131.0"
+  },
+  "categories": [
+    "Linters",
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "secrets",
+    "secret-detection",
+    "api-keys",
+    "credentials",
+    "gitleaks",
+    "git-security",
+    "secret-scanning"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CoreCoderX/Keymontr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CoreCoderX/Keymontr/issues"
+  },
+  "homepage": "https://github.com/CoreCoderX/Keymontr#readme",
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "keymontr.scanWorkspace",
+        "title": "Keymontr: Scan Workspace",
+        "icon": "$(search)"
+      },
+      {
+        "command": "keymontr.openDashboard",
+        "title": "Keymontr: Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "keymontr.fixSecret",
+        "title": "Keymontr: Fix Secret",
+        "icon": "$(wrench)"
+      },
+      {
+        "command": "keymontr.markAsSafe",
+        "title": "Keymontr: Mark as Safe",
+        "icon": "$(check)"
+      },
+      {
+        "command": "keymontr.exportReport",
+        "title": "Keymontr: Export Security Report",
+        "icon": "$(export)"
+      },
+      {
+        "command": "keymontr.installGitHook",
+        "title": "Keymontr: Install Git Pre-commit Hook",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "keymontr.removeGitHook",
+        "title": "Keymontr: Remove Git Pre-commit Hook",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "keymontr.clearHistory",
+        "title": "Keymontr: Clear Detection History",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "keymontr-sidebar",
+          "title": "Keymontr",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "views": {
+      "keymontr-sidebar": [
+        {
+          "id": "keymontr.findingsView",
+          "name": "Secret Findings",
+          "icon": "$(shield)"
+        },
+        {
+          "id": "keymontr.statsView",
+          "name": "Statistics",
+          "icon": "$(graph)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "keymontr.scanWorkspace",
+          "when": "view == keymontr.findingsView",
+          "group": "navigation"
+        },
+        {
+          "command": "keymontr.openDashboard",
+          "when": "view == keymontr.findingsView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Keymontr",
+      "properties": {
+        "keymontr.configFilePath": {
+          "type": "string",
+          "default": ".keymontr.json",
+          "description": "Path to the Keymontr configuration file."
+        },
+        "keymontr.enableRealTimeDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time secret detection."
+        },
+        "keymontr.minimumConfidenceToWarn": {
+          "type": "number",
+          "default": 0.4,
+          "minimum": 0.1,
+          "maximum": 1,
+          "description": "Minimum confidence score required to show a warning."
+        }
+      }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          ".keymontr.json"
+        ],
+        "url": "./schemas/keymontr-config.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:prod",
+    "build": "node esbuild.config.js",
+    "build:prod": "node esbuild.config.js --production",
+    "watch": "node esbuild.config.js --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "pretest": "npm run typecheck",
+    "problems": "npm run typecheck > problem.txt 2>&1 & npm run lint >> problem.txt 2>&1 & npm test >> problem.txt 2>&1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.2.0",
+    "@types/vscode": "^1.125.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.8.1",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
+    "typescript": "^6.0.0",
+    "typescript-eslint": "^8.67.0"
+  }
+}

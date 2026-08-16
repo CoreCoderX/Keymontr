@@ -1,0 +1,78 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "build",
+      "label": "npm: build",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$tsc"],
+      "detail": "Build the extension with esbuild"
+    },
+    {
+      "type": "npm",
+      "script": "watch",
+      "label": "npm: watch",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "owner": "typescript",
+          "fileLocation": "relative",
+          "pattern": {
+            "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "\\[SecureShield\\] Watching",
+            "endsPattern": "\\[SecureShield\\] Build complete"
+          }
+        }
+      ],
+      "detail": "Watch and rebuild on changes"
+    },
+    {
+      "type": "npm",
+      "script": "test",
+      "label": "npm: test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "detail": "Run the Jest test suite"
+    },
+    {
+      "type": "npm",
+      "script": "typecheck",
+      "label": "npm: typecheck",
+      "group": "build",
+      "problemMatcher": ["$tsc"],
+      "detail": "Run TypeScript type checking only (no emit)"
+    },
+    {
+      "type": "npm",
+      "script": "lint",
+      "label": "npm: lint",
+      "group": "test",
+      "problemMatcher": ["$eslint-stylish"],
+      "detail": "Run ESLint on all source files"
+    },
+    {
+      "type": "npm",
+      "script": "test:coverage",
+      "label": "npm: coverage",
+      "group": "test",
+      "problemMatcher": [],
+      "detail": "Run tests with coverage report"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node", "jest"],
+
+    "lib": ["ES2022"],
+
+    "rootDir": "./src",
+
+    "strict": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+
+    "sourceMap": true,
+
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "paths": {
+      "@core/*": ["./src/core/*"],
+      "@database/*": ["./src/database/*"],
+      "@vscode/*": ["./src/vscode/*"],
+      "@git/*": ["./src/git/*"],
+      "@remediation/*": ["./src/remediation/*"],
+      "@storage/*": ["./src/storage/*"],
+      "@config/*": ["./src/config/*"],
+      "@ai/*": ["./src/ai/*"]
+    }
+  },
+
+  "include": ["src/**/*.ts"],
+
+  "exclude": ["node_modules", "dist", "tests"]
+}

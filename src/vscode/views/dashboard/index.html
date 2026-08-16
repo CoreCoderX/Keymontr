@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none';
+             style-src 'unsafe-inline' {{CSP_SOURCE}};
+             script-src 'nonce-{{NONCE}}' {{CSP_SOURCE}};
+             img-src data: {{CSP_SOURCE}};"
+  />
+  <title>SecureShield Dashboard</title>
+  <link rel="stylesheet" href="{{DASHBOARD_CSS_URI}}" />
+</head>
+<body class="vscode-dark">
+
+  <!-- Header -->
+  <header class="ss-header">
+    <div class="ss-header__brand">
+      <span class="ss-header__icon ss-indicator-dot ss-indicator-dot--accent"></span>
+      <div class="ss-header__title">
+        <h1>SecureShield</h1>
+        <p>Intelligent Secret Leakage Prevention</p>
+      </div>
+    </div>
+    <div class="ss-header__actions">
+      <button class="ss-btn ss-btn--primary" id="btnScanWorkspace">
+        Scan Workspace
+      </button>
+      <button class="ss-btn ss-btn--secondary" id="btnExportReport">
+        Export Report
+      </button>
+    </div>
+  </header>
+
+  <!-- Overall status banner -->
+  <section class="ss-status-banner" id="statusBanner">
+    <div class="ss-status-banner__icon">
+      <span class="ss-indicator-dot ss-indicator-dot--success" id="statusIcon"></span>
+    </div>
+    <div class="ss-status-banner__text">
+      <h2 id="statusTitle">Your workspace is clean</h2>
+      <p id="statusSubtitle">No secrets detected in the current scan</p>
+    </div>
+  </section>
+
+  <!-- Statistics grid -->
+  <section class="ss-section">
+    <h2 class="ss-section__title">Statistics</h2>
+    <div class="ss-stats-grid">
+      <div class="ss-stat-card ss-stat-card--neutral">
+        <div class="ss-stat-card__value" id="statTotal">0</div>
+        <div class="ss-stat-card__label">Total Detected</div>
+      </div>
+      <div class="ss-stat-card ss-stat-card--success">
+        <div class="ss-stat-card__value" id="statFixed">0</div>
+        <div class="ss-stat-card__label">Fixed</div>
+      </div>
+      <div class="ss-stat-card ss-stat-card--warning">
+        <div class="ss-stat-card__value" id="statActive">0</div>
+        <div class="ss-stat-card__label">Active Issues</div>
+      </div>
+      <div class="ss-stat-card ss-stat-card--info">
+        <div class="ss-stat-card__value" id="statSuppressed">0</div>
+        <div class="ss-stat-card__label">Suppressed</div>
+      </div>
+      <div class="ss-stat-card ss-stat-card--error">
+        <div class="ss-stat-card__value" id="statBlocked">0</div>
+        <div class="ss-stat-card__label">Commits Blocked</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Severity breakdown -->
+  <section class="ss-section">
+    <h2 class="ss-section__title">Risk Distribution</h2>
+    <div class="ss-severity-grid">
+      <div class="ss-severity-card ss-severity-card--critical">
+        <div class="ss-severity-card__badge"><span class="ss-indicator-dot ss-indicator-dot--critical"></span></div>
+        <div class="ss-severity-card__count" id="sevCritical">0</div>
+        <div class="ss-severity-card__label">Critical</div>
+      </div>
+      <div class="ss-severity-card ss-severity-card--high">
+        <div class="ss-severity-card__badge"><span class="ss-indicator-dot ss-indicator-dot--high"></span></div>
+        <div class="ss-severity-card__count" id="sevHigh">0</div>
+        <div class="ss-severity-card__label">High</div>
+      </div>
+      <div class="ss-severity-card ss-severity-card--medium">
+        <div class="ss-severity-card__badge"><span class="ss-indicator-dot ss-indicator-dot--medium"></span></div>
+        <div class="ss-severity-card__count" id="sevMedium">0</div>
+        <div class="ss-severity-card__label">Medium</div>
+      </div>
+      <div class="ss-severity-card ss-severity-card--low">
+        <div class="ss-severity-card__badge"><span class="ss-indicator-dot ss-indicator-dot--low"></span></div>
+        <div class="ss-severity-card__count" id="sevLow">0</div>
+        <div class="ss-severity-card__label">Low</div>
+      </div>
+      <div class="ss-severity-card ss-severity-card--info">
+        <div class="ss-severity-card__badge"><span class="ss-indicator-dot ss-indicator-dot--info"></span></div>
+        <div class="ss-severity-card__count" id="sevInfo">0</div>
+        <div class="ss-severity-card__label">Informational</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Active findings table -->
+  <section class="ss-section">
+    <div class="ss-section__header">
+      <h2 class="ss-section__title">Active Findings</h2>
+      <div class="ss-filter-group">
+        <label for="filterSeverity" class="ss-label">Filter:</label>
+        <select id="filterSeverity" class="ss-select">
+          <option value="all">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="informational">Informational</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ss-table-wrapper">
+      <table class="ss-table" id="findingsTable">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>File</th>
+            <th>Line</th>
+            <th>Type</th>
+            <th>Confidence</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="findingsTableBody">
+          <tr class="ss-table__empty-row">
+            <td colspan="6">
+              <div class="ss-empty-state">
+                <span class="ss-empty-state__icon ss-indicator-dot ss-indicator-dot--neutral"></span>
+                <p>No active findings</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Secret types breakdown -->
+  <section class="ss-section">
+    <h2 class="ss-section__title">Secret Types Detected</h2>
+    <div class="ss-types-grid" id="typesGrid">
+      <div class="ss-empty-state">
+        <span class="ss-empty-state__icon ss-indicator-dot ss-indicator-dot--neutral"></span>
+        <p>No data yet</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Detection history -->
+  <section class="ss-section">
+    <div class="ss-section__header">
+      <h2 class="ss-section__title">Detection History</h2>
+      <button class="ss-btn ss-btn--danger ss-btn--sm" id="btnClearHistory">
+        Clear History
+      </button>
+    </div>
+    <div class="ss-table-wrapper">
+      <table class="ss-table" id="historyTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>File</th>
+            <th>Severity</th>
+            <th>Type</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <tr class="ss-table__empty-row">
+            <td colspan="5">
+              <div class="ss-empty-state">
+                <span class="ss-empty-state__icon ss-indicator-dot ss-indicator-dot--neutral"></span>
+                <p>No history yet</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Git Hook status -->
+  <section class="ss-section">
+    <h2 class="ss-section__title">Git Protection</h2>
+    <div class="ss-git-status" id="gitStatusCard">
+      <div class="ss-git-status__indicator" id="gitIndicator">
+        <span class="ss-indicator-dot ss-indicator-dot--neutral" id="gitIcon"></span>
+        <span id="gitLabel">Checking...</span>
+      </div>
+      <div class="ss-git-status__actions">
+        <button class="ss-btn ss-btn--primary ss-btn--sm" id="btnInstallHook">
+          Install Hook
+        </button>
+        <button class="ss-btn ss-btn--danger ss-btn--sm" id="btnRemoveHook" style="display:none">
+          Remove Hook
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Database health -->
+  <section class="ss-section ss-section--last">
+    <h2 class="ss-section__title">Database Status</h2>
+    <div class="ss-db-grid">
+      <div class="ss-db-card" id="db1Card">
+        <div class="ss-db-card__title">Regex Rules Database (DB1)</div>
+        <div class="ss-db-card__status" id="db1Status">Loading...</div>
+        <div class="ss-db-card__detail" id="db1Detail">—</div>
+      </div>
+      <div class="ss-db-card" id="db2Card">
+        <div class="ss-db-card__title">Identifier Database (DB2)</div>
+        <div class="ss-db-card__status" id="db2Status">Loading...</div>
+        <div class="ss-db-card__detail" id="db2Detail">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="ss-footer">
+    <p>SecureShield v1.0.0 — Powered by Gitleaks Rules + StringGroup Research</p>
+    <p class="ss-footer__updated">Last updated: <span id="lastUpdated">—</span></p>
+  </footer>
+
+  <script nonce="{{NONCE}}" src="{{DASHBOARD_JS_URI}}"></script>
+</body>
+</html>
