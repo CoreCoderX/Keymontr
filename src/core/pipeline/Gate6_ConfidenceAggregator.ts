@@ -5,7 +5,9 @@ import {
   AllowlistResult,
   ConfidenceBreakdown,
 } from "../types/DetectionResult.js";
-import { SecureShieldConfig } from "../../config/ConfigurationManager.js";
+import { KeymontrConfig } from "../../config/ConfigurationManager.js";
+import { isGenericRule } from "../../database/CollisionResolver.js";
+import { isSpecificContextGroup } from "../layers/Layer3_ContextEngine.js";
 
 /**
  * Gate 6 — Confidence Score Aggregator
@@ -44,7 +46,7 @@ const DEFAULT_WEIGHTS: WeightConfig = {
 export class Gate6_ConfidenceAggregator {
   private weights: WeightConfig;
 
-  constructor(config: SecureShieldConfig) {
+  constructor(config: KeymontrConfig) {
     // Normalize weights so they always sum to 1.0
     const raw = config.detection.weights;
     const total =
@@ -81,12 +83,22 @@ export class Gate6_ConfidenceAggregator {
       fileContext: gate4.layer5.score,
     };
 
+    let synergyBonus = 0;
+    // Synergy (entropy × context corroboration) is reserved for findings with
+    // NO regex match (rule=none). When a regex already matched, entropy and
+    // context merely re-confirm it — stacking a bonus on top pushes generic
+    // high-entropy values into CRITICAL territory without provider evidence.
+    if (!gate4.layer1.matched && components.context >= 0.4 && components.entropy >= 0.6) {
+      synergyBonus = 0.28;
+    }
+
     const baseScore =
       components.regex * this.weights.regex +
       components.entropy * this.weights.entropy +
       components.context * this.weights.context +
       components.stringGroup * this.weights.stringGroup +
-      components.fileContext * this.weights.fileContext;
+      components.fileContext * this.weights.fileContext +
+      synergyBonus;
 
     // ── Step 2: Apply multipliers ─────────────────────────────────────────
     const fileRiskMultiplier = gate4.layer5.fileRiskMultiplier;
@@ -112,6 +124,43 @@ export class Gate6_ConfidenceAggregator {
     // or missing context dampening an actual AWS key detection.
     if (gate4.layer1.isKnownProvider && !allowlistResult.isAllowlisted) {
       finalScore = Math.max(finalScore, 0.9);
+    }
+
+    // Generic rule match + same-line provider-context signal → floor at 0.90
+    // e.g. "awsSecretAccessKey: wJalrXUtnFEMI/..." has no specific AWS rule,
+    // but the identifier is unambiguous AWS context on the candidate's own
+    // line — treat it like a provider match. Broad groups (Generic Secrets,
+    // Common Aliases & Casings) do NOT trigger this floor.
+    if (
+      gate4.layer1.matched &&
+      isGenericRule(gate4.layer1.ruleId ?? "") &&
+      !allowlistResult.isAllowlisted &&
+      gate4.layer3.contextSignals.some(
+        (signal) => signal.distance === 0 && isSpecificContextGroup(signal.group),
+      )
+    ) {
+      finalScore = Math.max(finalScore, 0.9);
+    }
+
+    // PEM private-key header (e.g. "-----BEGIN RSA PRIVATE KEY-----") is
+    // unambiguous even when the full block is split across concatenated
+    // string literals — floor at 0.90.
+    if (
+      /-----BEGIN[A-Z0-9 _-]*PRIVATE KEY-----/.test(gate4.candidate.value) &&
+      !allowlistResult.isAllowlisted
+    ) {
+      finalScore = Math.max(finalScore, 0.9);
+    }
+
+    // Identifier-shaped values with low entropy are field/key NAMES, not
+    // secrets (e.g. the "private_key" field in a JSON service-account file).
+    // A regex may match the surrounding line, but "private_key" itself has
+    // ~2.9 bits of entropy — far below any secret threshold.
+    if (
+      /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(gate4.candidate.value) &&
+      gate4.layer2.entropy < 3.0
+    ) {
+      finalScore = 0.0;
     }
 
     // Clamp to [0, 1]

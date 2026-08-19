@@ -1,11 +1,10 @@
 // @ts-check
-// SecureShield Dashboard — Client-side script
+// Keymontr Dashboard — Client-side script
 // Communicates with the VS Code extension via acquireVsCodeApi()
 
 (function () {
   "use strict";
 
-  // VS Code API for postMessage communication
   const vscode = acquireVsCodeApi();
 
   // ── State ───────────────────────────────────────────────────────────────────
@@ -28,16 +27,24 @@
   };
 
   let filterSeverity = "all";
+  let filterQuery = "";
 
-  // ── DOM references ──────────────────────────────────────────────────────────
+  const SEVERITY_ORDER = ["critical", "high", "medium", "low", "informational"];
+  const SEVERITY_COLORS = {
+    critical: "var(--sev-critical)",
+    high: "var(--sev-high)",
+    medium: "var(--sev-medium)",
+    low: "var(--sev-low)",
+    informational: "var(--sev-info)",
+  };
 
   const el = (/** @type {string} */ id) => document.getElementById(id);
 
-  // ── Event listeners ─────────────────────────────────────────────────────────
+  // ── Init ────────────────────────────────────────────────────────────────────
 
   document.addEventListener("DOMContentLoaded", () => {
     bindButtons();
-    bindFilter();
+    bindFilters();
     requestInitialData();
   });
 
@@ -51,11 +58,11 @@
     if (btnScan) {
       btnScan.addEventListener("click", () => {
         postCommand("scanWorkspace");
-        btnScan.textContent = "Scanning...";
-        btnScan.setAttribute("disabled", "true");
+        btnScan.disabled = true;
+        btnScan.lastChild.textContent = " Scanning…";
         setTimeout(() => {
-          btnScan.textContent = "Scan Workspace";
-          btnScan.removeAttribute("disabled");
+          btnScan.disabled = false;
+          btnScan.lastChild.textContent = " Scan Workspace";
         }, 3000);
       });
     }
@@ -73,25 +80,31 @@
     }
 
     if (btnInstallHook) {
-      btnInstallHook.addEventListener("click", () =>
-        postCommand("installGitHook"),
-      );
+      btnInstallHook.addEventListener("click", () => postCommand("installGitHook"));
     }
 
     if (btnRemoveHook) {
       btnRemoveHook.addEventListener("click", () => {
-        if (confirm("Remove the SecureShield Git pre-commit hook?")) {
+        if (confirm("Remove the Keymontr Git pre-commit hook?")) {
           postCommand("removeGitHook");
         }
       });
     }
   }
 
-  function bindFilter() {
+  function bindFilters() {
     const filterEl = el("filterSeverity");
     if (filterEl) {
       filterEl.addEventListener("change", (e) => {
         filterSeverity = /** @type {HTMLSelectElement} */ (e.target).value;
+        renderFindingsTable();
+      });
+    }
+
+    const searchEl = el("searchInput");
+    if (searchEl) {
+      searchEl.addEventListener("input", (e) => {
+        filterQuery = /** @type {HTMLInputElement} */ (e.target).value.trim().toLowerCase();
         renderFindingsTable();
       });
     }
@@ -101,7 +114,7 @@
     postCommand("requestData");
   }
 
-  // ── Message handler from extension ─────────────────────────────────────────
+  // ── Message handler ─────────────────────────────────────────────────────────
 
   window.addEventListener("message", (event) => {
     const message = event.data;
@@ -113,18 +126,19 @@
         break;
       case "updateFindings":
         state.findings = message.payload ?? [];
+        renderStatus();
+        renderDonutChart();
         renderFindingsTable();
-        renderStatusBanner();
-        renderSeverityGrid();
         break;
       case "updateStats":
         state.stats = message.payload ?? state.stats;
-        renderStatsGrid();
-        renderTypesGrid();
+        renderStats();
+        renderTypesBars();
         break;
       case "updateHistory":
         state.history = message.payload ?? [];
         renderHistoryTable();
+        renderSparkline();
         break;
       case "updateGitHook":
         state.gitHookInstalled = message.payload === true;
@@ -154,98 +168,230 @@
     renderAll();
   }
 
-  // ── Render functions ────────────────────────────────────────────────────────
+  // ── Render entry ────────────────────────────────────────────────────────────
 
   function renderAll() {
-    renderStatusBanner();
-    renderStatsGrid();
-    renderSeverityGrid();
+    renderStatus();
+    renderStats();
+    renderDonutChart();
     renderFindingsTable();
-    renderTypesGrid();
+    renderTypesBars();
     renderHistoryTable();
+    renderSparkline();
     renderGitStatus();
     renderDbHealth();
     updateLastUpdated();
   }
 
-  function renderStatusBanner() {
-    const activeFindings = state.findings.filter((f) => !f.isFixed);
-    const banner = el("statusBanner");
+  // ── Status banner + header pill ─────────────────────────────────────────────
+
+  function renderStatus() {
+    const active = state.findings.filter((f) => !f.isFixed);
+    const hero = el("statusHero");
     const icon = el("statusIcon");
     const title = el("statusTitle");
     const subtitle = el("statusSubtitle");
+    const pill = el("headerStatusPill");
+    const pillText = el("headerStatusText");
 
-    if (!banner || !icon || !title || !subtitle) return;
+    if (!hero || !icon || !title || !subtitle) return;
 
-    banner.className = "ss-status-banner";
+    hero.classList.remove("is-clean", "is-warning", "is-error");
 
-    if (activeFindings.length === 0) {
-      banner.classList.add("is-clean");
-      icon.className = "ss-indicator-dot ss-indicator-dot--success";
+    if (active.length === 0) {
+      hero.classList.add("is-clean");
       title.textContent = "Your workspace is clean";
       subtitle.textContent = "No active secrets detected";
-    } else {
-      const hasCritical = activeFindings.some((f) => f.severity === "critical");
-      const hasHigh = activeFindings.some((f) => f.severity === "high");
+      if (pill) {
+        pill.className = "km-status-pill km-status-pill--clean";
+        pillText.textContent = "Clean";
+      }
+      return;
+    }
 
-      if (hasCritical) {
-        banner.classList.add("is-error");
-        icon.className = "ss-indicator-dot ss-indicator-dot--error";
-        title.textContent = `${activeFindings.length} Critical Secret(s) Detected`;
-        subtitle.textContent =
-          "Immediate action required — secrets must not be committed";
-      } else if (hasHigh) {
-        banner.classList.add("is-warning");
-        icon.className = "ss-indicator-dot ss-indicator-dot--warning";
-        title.textContent = `${activeFindings.length} Secret(s) Detected`;
-        subtitle.textContent = "High-risk credentials found in your code";
-      } else {
-        banner.classList.add("is-warning");
-        icon.className = "ss-indicator-dot ss-indicator-dot--warning";
-        title.textContent = `${activeFindings.length} Potential Secret(s) Found`;
-        subtitle.textContent = "Review the findings below and apply fixes";
+    const hasCritical = active.some((f) => f.severity === "critical");
+    const hasHigh = active.some((f) => f.severity === "high");
+
+    if (hasCritical) {
+      hero.classList.add("is-error");
+      title.textContent = `${active.length} active secret${active.length === 1 ? "" : "s"} — immediate action required`;
+      subtitle.textContent = "Critical credentials found in your code. Fix or suppress before committing.";
+      if (pill) {
+        pill.className = "km-status-pill km-status-pill--risk";
+        pillText.textContent = `${active.length} at risk`;
+      }
+    } else if (hasHigh) {
+      hero.classList.add("is-warning");
+      title.textContent = `${active.length} active secret${active.length === 1 ? "" : "s"} detected`;
+      subtitle.textContent = "High-risk credentials found in your code. Review the findings below.";
+      if (pill) {
+        pill.className = "km-status-pill km-status-pill--warn";
+        pillText.textContent = `${active.length} at risk`;
+      }
+    } else {
+      hero.classList.add("is-warning");
+      title.textContent = `${active.length} potential secret${active.length === 1 ? "" : "s"} found`;
+      subtitle.textContent = "Review the findings below and apply fixes.";
+      if (pill) {
+        pill.className = "km-status-pill km-status-pill--warn";
+        pillText.textContent = `${active.length} to review`;
       }
     }
   }
 
-  function renderStatsGrid() {
+  // ── Stats cards + hero chips ────────────────────────────────────────────────
+
+  function renderStats() {
     const s = state.stats;
-    setText("statTotal", s.totalDetected ?? 0);
-    setText("statFixed", s.totalFixed ?? 0);
-    setText(
-      "statActive",
-      (s.totalDetected ?? 0) - (s.totalFixed ?? 0) - (s.totalSuppressed ?? 0),
-    );
-    setText("statSuppressed", s.totalSuppressed ?? 0);
-    setText("statBlocked", s.commitsBlocked ?? 0);
+    const total = s.totalDetected ?? 0;
+    const fixed = s.totalFixed ?? 0;
+    const suppressed = s.totalSuppressed ?? 0;
+    const active = Math.max(0, total - fixed - suppressed);
+    const blocked = s.commitsBlocked ?? 0;
+
+    setText("statTotal", total);
+    setText("statFixed", fixed);
+    setText("statActive", active);
+    setText("statSuppressed", suppressed);
+    setText("statBlocked", blocked);
+
+    setText("heroActive", state.findings.filter((f) => !f.isFixed).length);
+    setText("heroFixed", fixed);
+    setText("heroSuppressed", suppressed);
+    setText("heroBlocked", blocked);
   }
 
-  function renderSeverityGrid() {
+  // ── Donut chart (risk distribution) ─────────────────────────────────────────
+
+  function renderDonutChart() {
+    const svg = el("donutSvg");
+    const legend = el("donutLegend");
+    const totalEl = el("donutTotal");
+    if (!svg || !legend) return;
+
     const bySev = state.stats.bySeverity ?? {};
-    setText("sevCritical", bySev["critical"] ?? 0);
-    setText("sevHigh", bySev["high"] ?? 0);
-    setText("sevMedium", bySev["medium"] ?? 0);
-    setText("sevLow", bySev["low"] ?? 0);
-    setText("sevInfo", bySev["informational"] ?? 0);
+    const total = SEVERITY_ORDER.reduce((sum, s) => sum + (bySev[s] ?? 0), 0);
+
+    if (totalEl) totalEl.textContent = String(total);
+
+    const R = 50;
+    const CIRC = 2 * Math.PI * R;
+    const GAP = 2.5;
+
+    let svgInner = "";
+    let offset = 0;
+    let hasSegments = false;
+
+    for (const sev of SEVERITY_ORDER) {
+      const count = bySev[sev] ?? 0;
+      if (count <= 0) continue;
+      hasSegments = true;
+      const len = Math.max((count / total) * CIRC - GAP, 0.5);
+      svgInner += `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${SEVERITY_COLORS[sev]}"
+        stroke-width="13" stroke-linecap="butt"
+        stroke-dasharray="${len.toFixed(2)} ${(CIRC - len).toFixed(2)}"
+        stroke-dashoffset="${(-offset).toFixed(2)}" />`;
+      offset += len + GAP;
+    }
+
+    svg.innerHTML =
+      `<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--input)" stroke-width="13" />` +
+      svgInner;
+
+    // Legend
+    const entries = SEVERITY_ORDER.filter((sev) => (bySev[sev] ?? 0) > 0);
+    if (entries.length === 0) {
+      legend.innerHTML = `<div class="km-empty">No findings yet</div>`;
+      return;
+    }
+
+    legend.innerHTML = entries
+      .map((sev) => {
+        const count = bySev[sev] ?? 0;
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        return `
+        <div class="km-legend__row">
+          <span class="km-legend__swatch" style="background:${SEVERITY_COLORS[sev]}"></span>
+          <span class="km-legend__label">${sev}</span>
+          <span class="km-legend__count">${count}</span>
+          <span class="km-legend__pct">${pct}%</span>
+        </div>`;
+      })
+      .join("");
   }
+
+  // ── Bar chart (secret types) ────────────────────────────────────────────────
+
+  function renderTypesBars() {
+    const bars = el("typesBars");
+    const countEl = el("typesCount");
+    if (!bars) return;
+
+    const byType = state.stats.byType ?? {};
+    const entries = Object.entries(byType)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 8);
+
+    if (countEl) {
+      countEl.textContent = `${Object.keys(byType).length} type${Object.keys(byType).length === 1 ? "" : "s"}`;
+    }
+
+    if (entries.length === 0) {
+      bars.innerHTML = `<div class="km-empty">No secrets detected yet</div>`;
+      return;
+    }
+
+    const max = Math.max(...entries.map(([, c]) => Number(c)), 1);
+
+    bars.innerHTML = entries
+      .map(([type, count]) => {
+        const pct = Math.round((Number(count) / max) * 100);
+        return `
+        <div class="km-bar-row">
+          <span class="km-bar-row__label" title="${escHtml(String(type))}">${escHtml(String(type))}</span>
+          <div class="km-bar-row__track">
+            <div class="km-bar-row__fill" style="width:${pct}%"></div>
+          </div>
+          <span class="km-bar-row__count">${escHtml(String(count))}</span>
+        </div>`;
+      })
+      .join("");
+  }
+
+  // ── Findings table ──────────────────────────────────────────────────────────
 
   function renderFindingsTable() {
     const tbody = el("findingsTableBody");
+    const countEl = el("findingsCount");
     if (!tbody) return;
 
-    const filtered =
-      filterSeverity === "all"
-        ? state.findings
-        : state.findings.filter((f) => f.severity === filterSeverity);
+    let filtered = state.findings;
+    if (filterSeverity !== "all") {
+      filtered = filtered.filter((f) => f.severity === filterSeverity);
+    }
+    if (filterQuery) {
+      filtered = filtered.filter((f) => {
+        const fileName = String(f.meta?.fileName ?? "").toLowerCase();
+        const type = String(
+          f.detection?.matchedRuleName ?? f.detection?.matchedGroup ?? "",
+        ).toLowerCase();
+        return fileName.includes(filterQuery) || type.includes(filterQuery);
+      });
+    }
+
+    if (countEl) {
+      countEl.textContent = `${filtered.length} finding${filtered.length === 1 ? "" : "s"}`;
+    }
 
     if (filtered.length === 0) {
       tbody.innerHTML = `
-        <tr class="ss-table__empty-row">
+        <tr class="km-table__empty">
           <td colspan="6">
-            <div class="ss-empty-state">
-              <span class="ss-empty-state__icon ss-indicator-dot ss-indicator-dot--neutral"></span>
-              <p>${filterSeverity === "all" ? "No active findings" : `No ${filterSeverity} findings`}</p>
-            </div>
+            <div class="km-empty">${
+              state.findings.length === 0
+                ? "No active findings"
+                : "No findings match the current filter"
+            }</div>
           </td>
         </tr>`;
       return;
@@ -264,61 +410,33 @@
             f.detection?.matchedGroup ??
             "Unknown",
         );
-        const envKey = String(f.remediation?.suggestedEnvKey ?? "SECRET");
         const findingId = String(f.id ?? "");
 
         return `
         <tr>
-          <td><span class="ss-badge ss-badge--${escHtml(sev)}">${escHtml(sev.toUpperCase())}</span></td>
-          <td><span class="ss-mono">${escHtml(fileName)}</span></td>
+          <td><span class="km-badge km-badge--${escHtml(sev)}">${escHtml(sev)}</span></td>
+          <td><span class="km-mono">${escHtml(fileName)}</span></td>
           <td>${escHtml(String(line))}</td>
           <td>${escHtml(typeStr)}</td>
           <td>
-            <div class="ss-confidence">
-              <div class="ss-confidence__bar">
-                <div class="ss-confidence__fill ss-confidence__fill--${escHtml(sev)}"
+            <div class="km-confidence">
+              <div class="km-confidence__track">
+                <div class="km-confidence__fill km-confidence__fill--${escHtml(sev)}"
                      style="width:${confPct}%"></div>
               </div>
-              <span class="ss-confidence__label">${confPct}%</span>
+              <span class="km-confidence__label">${confPct}%</span>
             </div>
           </td>
-          <td>
-            <button class="ss-action-btn" onclick="fixFinding('${escHtml(findingId)}')">Fix</button>
-            <button class="ss-action-btn" onclick="markSafe('${escHtml(findingId)}')">Safe</button>
+          <td class="km-table__right-actions">
+            <button class="km-action" onclick="fixFinding('${escHtml(findingId)}')">Fix</button>
+            <button class="km-action km-action--danger" onclick="markSafe('${escHtml(findingId)}')">Safe</button>
           </td>
         </tr>`;
       })
       .join("");
   }
 
-  function renderTypesGrid() {
-    const grid = el("typesGrid");
-    if (!grid) return;
-
-    const byType = state.stats.byType ?? {};
-    const entries = Object.entries(byType).sort(
-      (a, b) => Number(b[1]) - Number(a[1]),
-    );
-
-    if (entries.length === 0) {
-      grid.innerHTML = `
-        <div class="ss-empty-state">
-          <span class="ss-empty-state__icon ss-indicator-dot ss-indicator-dot--neutral"></span>
-          <p>No data yet</p>
-        </div>`;
-      return;
-    }
-
-    grid.innerHTML = entries
-      .map(
-        ([type, count]) => `
-      <div class="ss-type-card">
-        <div class="ss-type-card__count">${escHtml(String(count))}</div>
-        <div class="ss-type-card__name">${escHtml(String(type))}</div>
-      </div>`,
-      )
-      .join("");
-  }
+  // ── History table ───────────────────────────────────────────────────────────
 
   function renderHistoryTable() {
     const tbody = el("historyTableBody");
@@ -328,13 +446,8 @@
 
     if (recent.length === 0) {
       tbody.innerHTML = `
-        <tr class="ss-table__empty-row">
-          <td colspan="5">
-            <div class="ss-empty-state">
-              <span class="ss-empty-state__icon ss-indicator-dot ss-indicator-dot--neutral"></span>
-              <p>No history yet</p>
-            </div>
-          </td>
+        <tr class="km-table__empty">
+          <td colspan="5"><div class="km-empty">No history yet</div></td>
         </tr>`;
       return;
     }
@@ -350,36 +463,118 @@
         return `
         <tr>
           <td>${escHtml(date)}</td>
-          <td><span class="ss-mono">${escHtml(fileName)}</span></td>
-          <td><span class="ss-badge ss-badge--${escHtml(sev)}">${escHtml(sev.toUpperCase())}</span></td>
+          <td><span class="km-mono">${escHtml(fileName)}</span></td>
+          <td><span class="km-badge km-badge--${escHtml(sev)}">${escHtml(sev)}</span></td>
           <td>${escHtml(typeStr)}</td>
-          <td><span class="ss-badge ss-badge--${escHtml(status)}">${escHtml(status.toUpperCase())}</span></td>
+          <td><span class="km-badge km-badge--${escHtml(status)}">${escHtml(status)}</span></td>
         </tr>`;
       })
       .join("");
   }
 
+  // ── Sparkline (detections over last 14 days) ────────────────────────────────
+
+  function renderSparkline() {
+    const svg = el("sparklineSvg");
+    const emptyEl = el("sparklineEmpty");
+    const hintEl = el("sparklineHint");
+    if (!svg || !emptyEl) return;
+
+    const history = state.history ?? [];
+    if (history.length === 0) {
+      svg.innerHTML = "";
+      svg.style.display = "none";
+      emptyEl.style.display = "flex";
+      return;
+    }
+    svg.style.display = "block";
+    emptyEl.style.display = "none";
+
+    // Bucket detections per day for the last 14 days
+    const days = 14;
+    const buckets = new Array(days).fill(0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const r of history) {
+      const t = new Date(r.detectedAt ?? Date.now());
+      const dayStart = new Date(t);
+      dayStart.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((today.getTime() - dayStart.getTime()) / 86400000);
+      if (diffDays >= 0 && diffDays < days) {
+        buckets[days - 1 - diffDays] += 1;
+      }
+    }
+
+    const W = 280;
+    const H = 96;
+    const PAD = 6;
+    const max = Math.max(...buckets, 1);
+    const stepX = (W - PAD * 2) / (days - 1);
+    const points = buckets.map((count, i) => {
+      const x = PAD + i * stepX;
+      const y = H - PAD - (count / max) * (H - PAD * 2 - 8);
+      return { x, y, count };
+    });
+
+    const linePath = points
+      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+      .join(" ");
+    const areaPath =
+      `${linePath} L${points[points.length - 1].x.toFixed(1)},${H - PAD} ` +
+      `L${points[0].x.toFixed(1)},${H - PAD} Z`;
+
+    const last = points[points.length - 1];
+    const peak = points.reduce((a, b) => (b.count > a.count ? b : a), points[0]);
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="kmArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="var(--primary)" stop-opacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d="${areaPath}" fill="url(#kmArea)" />
+      <path d="${linePath}" fill="none" stroke="var(--primary)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="${peak.x.toFixed(1)}" cy="${peak.y.toFixed(1)}" r="3.5"
+              fill="var(--primary)" stroke="var(--card)" stroke-width="1.5" />
+      <text x="${W - PAD}" y="${H - 4}" text-anchor="end" font-size="9"
+            fill="var(--muted)" font-family="var(--font)">${last.count} today</text>`;
+
+    if (hintEl) {
+      const daysWithData = buckets.filter((b) => b > 0).length;
+      hintEl.textContent = `${daysWithData} active day${daysWithData === 1 ? "" : "s"} · last 14 days`;
+    }
+  }
+
+  // ── Git protection ──────────────────────────────────────────────────────────
+
   function renderGitStatus() {
     const icon = el("gitIcon");
     const label = el("gitLabel");
+    const hint = el("gitStatusHint");
     const btnInstall = el("btnInstallHook");
     const btnRemove = el("btnRemoveHook");
 
     if (!icon || !label) return;
 
     if (state.gitHookInstalled) {
-      icon.className = "ss-indicator-dot ss-indicator-dot--success";
-      label.textContent =
-        "Git pre-commit hook is active — commits will be scanned";
+      icon.className = "km-dot km-dot--success";
+      label.textContent = "Pre-commit hook active — commits are scanned";
+      if (hint) hint.textContent = "Protected";
       if (btnInstall) btnInstall.style.display = "none";
       if (btnRemove) btnRemove.style.display = "inline-flex";
     } else {
-      icon.className = "ss-indicator-dot ss-indicator-dot--neutral";
-      label.textContent = "Git pre-commit hook not installed";
+      icon.className = "km-dot km-dot--neutral";
+      label.textContent = "Pre-commit hook not installed";
+      if (hint) hint.textContent = "Unprotected";
       if (btnInstall) btnInstall.style.display = "inline-flex";
       if (btnRemove) btnRemove.style.display = "none";
     }
   }
+
+  // ── Database health ─────────────────────────────────────────────────────────
 
   function renderDbHealth() {
     const health = state.dbHealth;
@@ -393,11 +588,11 @@
     if (db1Status && db1Detail) {
       if (health.db1?.loaded) {
         db1Status.textContent = "Loaded";
-        db1Status.style.color = "var(--ss-success)";
+        db1Status.className = "km-badge km-badge--fixed";
         db1Detail.textContent = `${health.db1.ruleCount ?? 0} rules`;
       } else {
         db1Status.textContent = "Error";
-        db1Status.style.color = "var(--ss-error)";
+        db1Status.className = "km-badge km-badge--critical";
         db1Detail.textContent = health.db1?.error ?? "Unknown error";
       }
     }
@@ -405,11 +600,11 @@
     if (db2Status && db2Detail) {
       if (health.db2?.loaded) {
         db2Status.textContent = "Loaded";
-        db2Status.style.color = "var(--ss-success)";
+        db2Status.className = "km-badge km-badge--fixed";
         db2Detail.textContent = `${health.db2.keywordCount ?? 0} identifiers`;
       } else {
         db2Status.textContent = "Error";
-        db2Status.style.color = "var(--ss-error)";
+        db2Status.className = "km-badge km-badge--critical";
         db2Detail.textContent = health.db2?.error ?? "Unknown error";
       }
     }
@@ -417,9 +612,7 @@
 
   function updateLastUpdated() {
     const el_ = el("lastUpdated");
-    if (el_) {
-      el_.textContent = new Date().toLocaleTimeString();
-    }
+    if (el_) el_.textContent = new Date().toLocaleTimeString();
   }
 
   // ── Global action functions (called from onclick in table) ──────────────────

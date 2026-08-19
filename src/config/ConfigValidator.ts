@@ -5,7 +5,7 @@ export interface ValidationResult {
 }
 
 /**
- * Validates a SecureShield configuration object.
+ * Validates a Keymontr configuration object.
  * Returns detailed errors and warnings for misconfiguration.
  */
 export class ConfigValidator {

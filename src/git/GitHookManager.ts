@@ -35,7 +35,7 @@ export class GitHookManager {
     this.hookPath = path.join(this.hooksDir, "pre-commit");
     this.backupPath = path.join(
       this.hooksDir,
-      "pre-commit.secureshield.backup",
+      "pre-commit.keymontr.backup",
     );
   }
 
@@ -47,7 +47,7 @@ export class GitHookManager {
   }
 
   /**
-   * Returns true if the pre-commit hook is already installed by SecureShield.
+   * Returns true if the pre-commit hook is already installed by Keymontr.
    */
   public isHookInstalled(): boolean {
     if (!fs.existsSync(this.hookPath)) {
@@ -55,7 +55,7 @@ export class GitHookManager {
     }
     try {
       const content = fs.readFileSync(this.hookPath, "utf-8");
-      return content.includes("SECURESHIELD_HOOK");
+      return content.includes("KEYMONTR_HOOK");
     } catch {
       return false;
     }
@@ -190,7 +190,7 @@ export class GitHookManager {
     if (fs.existsSync(huskyHookPath)) {
       try {
         existingContent = fs.readFileSync(huskyHookPath, "utf-8");
-        if (existingContent.includes("SECURESHIELD_HOOK")) {
+        if (existingContent.includes("KEYMONTR_HOOK")) {
           return {
             success: true,
             hookPath: huskyHookPath,
@@ -204,8 +204,8 @@ export class GitHookManager {
       existingContent = "#!/bin/sh\n";
     }
 
-    const secureShieldLine = this.buildHuskyLine(extensionPath);
-    const newContent = `${existingContent}\n# SECURESHIELD_HOOK\n${secureShieldLine}\n`;
+    const keymontrHookLine = this.buildHuskyLine(extensionPath);
+    const newContent = `${existingContent}\n# KEYMONTR_HOOK\n${keymontrHookLine}\n`;
 
     try {
       fs.writeFileSync(huskyHookPath, newContent, "utf-8");
@@ -229,7 +229,7 @@ export class GitHookManager {
   }
 
   /**
-   * Removes the SecureShield pre-commit hook.
+   * Removes the Keymontr pre-commit hook.
    * Restores any backup if it exists.
    */
   public remove(): HookRemoveResult {
@@ -240,11 +240,11 @@ export class GitHookManager {
     try {
       // Check if it's ours
       const content = fs.readFileSync(this.hookPath, "utf-8");
-      if (!content.includes("SECURESHIELD_HOOK")) {
+      if (!content.includes("KEYMONTR_HOOK")) {
         return {
           success: false,
           restored: false,
-          error: "Hook not installed by SecureShield — will not remove",
+          error: "Hook not installed by Keymontr — will not remove",
         };
       }
 
@@ -279,13 +279,13 @@ export class GitHookManager {
     );
 
     return `#!/bin/sh
-# SECURESHIELD_HOOK — Managed by SecureShield VS Code Extension
-# Do not edit this section manually. Use the SecureShield extension to manage.
+# KEYMONTR_HOOK — Managed by Keymontr VS Code Extension
+# Do not edit this section manually. Use the Keymontr extension to manage.
 # Version: 1.0.0
 
-echo "SecureShield: Scanning staged files for secrets..."
+echo "Keymontr: Scanning staged files for secrets..."
 
-# Run the SecureShield pre-commit scanner
+# Run the Keymontr pre-commit scanner
 "${nodeExecPath}" "${scannerScript}" --staged
 
 EXIT_CODE=$?
@@ -293,7 +293,7 @@ EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
   echo ""
   echo "██████████████████████████████████████████"
-  echo "  SECURESHIELD: SECRET DETECTED"
+  echo "  KEYMONTR: SECRET DETECTED"
   echo "  Commit has been BLOCKED."
   echo "  Fix the issues above or run:"
   echo "  git commit --no-verify  (bypass, not recommended)"
@@ -302,7 +302,7 @@ if [ $EXIT_CODE -ne 0 ]; then
   exit 1
 fi
 
-echo "SecureShield: No secrets detected. Commit allowed."
+echo "Keymontr: No secrets detected. Commit allowed."
 exit 0
 `;
   }

@@ -165,7 +165,7 @@
         },
         "showStatusBar": {
           "type": "boolean",
-          "description": "Show SecureShield status in the VS Code status bar.",
+          "description": "Show Keymontr status in the VS Code status bar.",
           "default": true
         },
         "showFileDecorations": {
@@ -210,12 +210,12 @@
         },
         "useDefaultIgnorePaths": {
           "type": "boolean",
-          "description": "Include SecureShield's built-in ignore paths (node_modules, dist, lock files, etc.).",
+          "description": "Include Keymontr's built-in ignore paths (node_modules, dist, lock files, etc.).",
           "default": true
         },
         "useDefaultStopwords": {
           "type": "boolean",
-          "description": "Include SecureShield's built-in stopwords (example, dummy, placeholder, etc.).",
+          "description": "Include Keymontr's built-in stopwords (example, dummy, placeholder, etc.).",
           "default": true
         }
       },

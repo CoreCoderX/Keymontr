@@ -1,5 +1,5 @@
 import { GitleaksDatabase } from "../../database/GitleaksDatabase.js";
-import { CollisionResolver } from "../../database/CollisionResolver.js";
+import { CollisionResolver, isGenericRule } from "../../database/CollisionResolver.js";
 import { SecretCandidate, RegexLayerResult } from "../types/DetectionResult.js";
 import { CompiledRule } from "../types/RuleDefinition.js";
 
@@ -76,7 +76,7 @@ export class Layer1_RegexEngine {
       matchStart: candidate.startChar,
       matchEnd: candidate.endChar,
       score: best.score,
-      isKnownProvider: true,
+      isKnownProvider: !isGenericRule(best.ruleId),
       allMatchedRules,
     };
   }

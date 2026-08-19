@@ -64,6 +64,9 @@ describe("Full Pipeline Integration", () => {
     private_key: "Certificates",
     secret: "Generic Secrets",
     SECRET: "Generic Secrets",
+    tkn: "Key & Token Abbreviations",
+    TKN: "Key & Token Abbreviations",
+    tkn_abbr: "Key & Token Abbreviations",
   };
 
   beforeEach(async () => {
@@ -134,6 +137,24 @@ STRIPE_SECRET_KEY=sk_live_realproductionkey123456789
 
       // .env files have HIGH risk level — confidence boosted
       expect(result.stats.linesScanned).toBeGreaterThan(0);
+    });
+
+    it("uses the assignment identifier for env var names (beats generic group names)", async () => {
+      const content = `const tkn = "xK9mP2qR5vN8wL1jB4hT7yZ0cA3eFgDi6uS";`;
+
+      const result = await pipeline.run({
+        fileUri: path.join(tempDir, "abbreviations.ts"),
+        fileContent: content,
+        languageId: "typescript",
+        triggerType: "save",
+      });
+
+      expect(result.findings.length).toBeGreaterThan(0);
+      const finding = result.findings[0];
+      if (finding !== undefined) {
+        expect(finding.remediation.suggestedEnvKey).toBe("TKN");
+        expect(finding.remediation.suggestedEnvKey).not.toContain("__");
+      }
     });
   });
 
@@ -212,7 +233,7 @@ const sessionId = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
     });
 
     it("should NOT flag inline-ignored lines", async () => {
-      const content = `const api_key = "xK9mP2qR5vN8wL1jB4hT7yZ0cA3eFgDi6uStest"; // secureshield-ignore`;
+      const content = `const api_key = "xK9mP2qR5vN8wL1jB4hT7yZ0cA3eFgDi6uStest"; // keymontr-ignore`;
 
       const result = await pipeline.run({
         fileUri: path.join(tempDir, "config.ts"),

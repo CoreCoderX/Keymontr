@@ -107,6 +107,35 @@ export class StringGroupDatabase {
   ): { group: string; matchedVariant: string } | undefined {
     this.assertLoaded();
 
+    // Some identifiers are wrapped in accessor prefixes (get/set/is).
+    // getDbPassword → DbPassword → db_password, which IS in the index.
+    const strippedForms = [identifier];
+    for (const prefix of ["get", "set", "is"]) {
+      if (
+        identifier.length > prefix.length + 1 &&
+        identifier.toLowerCase().startsWith(prefix) &&
+        /[A-Z]/.test(identifier[prefix.length])
+      ) {
+        strippedForms.push(identifier.slice(prefix.length));
+      }
+    }
+
+    for (const base of strippedForms) {
+      const match = this.matchVariants(base);
+      if (match !== undefined) {
+        return match;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Looks up a single base identifier trying all common casing variants.
+   */
+  private matchVariants(
+    identifier: string,
+  ): { group: string; matchedVariant: string } | undefined {
     // Try exact match first (most common, fastest path)
     const exact = this.identifierIndex.get(identifier);
     if (exact !== undefined) {

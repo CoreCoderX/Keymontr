@@ -36,6 +36,7 @@ const DISTANCE_WEIGHTS: Record<number, number> = {
 // Groups that contribute the most to secret classification
 const HIGH_SIGNAL_GROUPS = new Set([
   "Generic Secrets",
+  "Common Aliases & Casings",
   "AWS",
   "Azure",
   "Google Cloud Platform",
@@ -48,6 +49,19 @@ const HIGH_SIGNAL_GROUPS = new Set([
   "Databases",
   "OAuth & Social",
 ]);
+
+/**
+ * Context groups that identify a SPECIFIC provider/technology. Broad
+ * catch-all groups ("Generic Secrets", "Common Aliases & Casings") are
+ * excluded — they only indicate "something secret-like", not a vendor.
+ */
+export function isSpecificContextGroup(group: string): boolean {
+  return (
+    HIGH_SIGNAL_GROUPS.has(group) &&
+    group !== "Generic Secrets" &&
+    group !== "Common Aliases & Casings"
+  );
+}
 
 export class Layer3_ContextEngine {
   constructor(private readonly stringGroupDb: StringGroupDatabase) {}
@@ -82,9 +96,23 @@ export class Layer3_ContextEngine {
 
     const score = this.computeContextScore(signals);
 
+    // Order matched groups by the nearest signal's distance — the group
+    // closest to the candidate is the most relevant description of it.
+    const nearestDistance = new Map<string, number>();
+    for (const signal of signals) {
+      const current = nearestDistance.get(signal.group);
+      if (current === undefined || signal.distance < current) {
+        nearestDistance.set(signal.group, signal.distance);
+      }
+    }
+    const orderedGroups = Array.from(matchedGroups).sort(
+      (a, b) =>
+        (nearestDistance.get(a) ?? 99) - (nearestDistance.get(b) ?? 99),
+    );
+
     return {
       nearbyIdentifiers: [...new Set(allIdentifiers)],
-      matchedGroups: Array.from(matchedGroups),
+      matchedGroups: orderedGroups,
       contextSignals: signals,
       score,
     };
@@ -92,6 +120,12 @@ export class Layer3_ContextEngine {
 
   /**
    * Builds the context lines with their distance from the candidate line.
+   *
+   * The candidate stores up to ±5 surrounding lines, but near a file
+   * boundary the array is truncated. Distance must be derived from how many
+   * lines can actually precede the candidate, NOT from the array position —
+   * otherwise a secret near the top/bottom of a file has its neighbors
+   * treated as adjacent (distance collapses).
    */
   private buildContextLines(
     candidate: SecretCandidate,
@@ -101,16 +135,16 @@ export class Layer3_ContextEngine {
     // Candidate line itself (distance 0)
     result.push({ line: candidate.line, distance: 0 });
 
-    // Surrounding lines — the candidate stores ±5 surrounding lines
-    // Index 0..4 = lines BEFORE (distance -5 to -1)
-    // Index 5..9 = lines AFTER (distance +1 to +5)
+    // Surrounding lines — stored BEFORE-first, then AFTER.
+    // Only `candidate.lineNumber` lines can precede the candidate (0-based),
+    // capped at the 5-line window.
     const surrounding = candidate.surroundingLines;
-    const half = Math.floor(surrounding.length / 2);
+    const beforeCount = Math.min(5, candidate.lineNumber);
 
     for (let i = 0; i < surrounding.length; i++) {
-      const distance = i < half ? i - half : i - half + 1;
       const line = surrounding[i];
       if (line !== undefined) {
+        const distance = i < beforeCount ? i - beforeCount : i - beforeCount + 1;
         result.push({ line, distance });
       }
     }

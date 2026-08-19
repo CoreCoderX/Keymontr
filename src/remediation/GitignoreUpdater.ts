@@ -15,8 +15,8 @@ export interface GitignoreUpdateResult {
  * Preserves all existing content and comments.
  */
 export class GitignoreUpdater {
-  private static readonly SECURESHIELD_SECTION_HEADER =
-    "# SecureShield — automatically added";
+  private static readonly KEYMONTR_SECTION_HEADER =
+    "# Keymontr — automatically added";
 
   constructor(private readonly workspaceRoot: string) {}
 
@@ -76,7 +76,7 @@ export class GitignoreUpdater {
     const timestamp = new Date().toISOString().split("T")[0] ?? "";
     const newSection = [
       "",
-      `${GitignoreUpdater.SECURESHIELD_SECTION_HEADER} (${timestamp})`,
+      `${GitignoreUpdater.KEYMONTR_SECTION_HEADER} (${timestamp})`,
       ...toAdd,
       "",
     ].join("\n");
@@ -102,7 +102,7 @@ export class GitignoreUpdater {
   }
 
   /**
-   * Returns the standard entries that SecureShield recommends.
+   * Returns the standard entries that Keymontr recommends.
    */
   public static getRecommendedEntries(): string[] {
     return [

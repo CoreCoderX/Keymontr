@@ -1,11 +1,11 @@
-import { SecureShieldConfig } from "./ConfigurationManager.js";
+import { KeymontrConfig } from "./ConfigurationManager.js";
 
 /**
  * Default configuration values.
- * These are used when no .secureshield.json exists
+ * These are used when no .keymontr.json exists
  * or when individual fields are missing.
  */
-export const DEFAULT_CONFIG: SecureShieldConfig = {
+export const DEFAULT_CONFIG: KeymontrConfig = {
   version: 1,
   detection: {
     sensitivity: "balanced",

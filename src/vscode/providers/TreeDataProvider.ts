@@ -17,7 +17,7 @@ interface FindingsTreeItem {
 }
 
 /**
- * TreeDataProvider — Populates the SecureShield sidebar tree view.
+ * TreeDataProvider — Populates the Keymontr sidebar tree view.
  *
  * Structure:
  * ├── Critical (2)          ◉ (errorForeground icon)
@@ -27,7 +27,7 @@ interface FindingsTreeItem {
  * │   └── database.js:8 — Generic API Key
  * └── No Issues             ◉ (shield icon)
  */
-export class SecureShieldTreeDataProvider implements vscode.TreeDataProvider<FindingsTreeItem> {
+export class KeymontrTreeDataProvider implements vscode.TreeDataProvider<FindingsTreeItem> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<
     FindingsTreeItem | undefined | null | void
   >();
@@ -47,6 +47,13 @@ export class SecureShieldTreeDataProvider implements vscode.TreeDataProvider<Fin
       this.allFindings.set(fileUri, findings);
     }
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * Returns all current findings across all scanned files.
+   */
+  public getAllFindings(): SecretFinding[] {
+    return Array.from(this.allFindings.values()).flat();
   }
 
   /**

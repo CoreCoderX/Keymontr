@@ -9,7 +9,7 @@ import { SeverityLevel } from "../../core/types/SeverityLevel.js";
  * MEDIUM         →  "!" badge in warning color
  * LOW/INFO       →  "•" badge in hint color
  */
-export class SecureShieldDecorationProvider
+export class KeymontrDecorationProvider
   implements vscode.FileDecorationProvider
 {
   private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<
@@ -69,32 +69,32 @@ export class SecureShieldDecorationProvider
       case SeverityLevel.CRITICAL:
         return new vscode.FileDecoration(
           "!",
-          "SecureShield: Critical secret detected",
+          "Keymontr: Critical secret detected",
           new vscode.ThemeColor("errorForeground"),
         );
       case SeverityLevel.HIGH:
         return new vscode.FileDecoration(
           "!",
-          "SecureShield: High-risk secret detected",
+          "Keymontr: High-risk secret detected",
           new vscode.ThemeColor("charts.orange"),
         );
       case SeverityLevel.MEDIUM:
         return new vscode.FileDecoration(
           "!",
-          "SecureShield: Medium-risk secret detected",
+          "Keymontr: Medium-risk secret detected",
           new vscode.ThemeColor("editorWarning.foreground"),
         );
       case SeverityLevel.LOW:
       case SeverityLevel.INFORMATIONAL:
         return new vscode.FileDecoration(
           "•",
-          "SecureShield: Possible secret — low confidence",
+          "Keymontr: Possible secret — low confidence",
           new vscode.ThemeColor("editorHint.foreground"),
         );
       default:
         return new vscode.FileDecoration(
           "?",
-          "SecureShield: Review suggested",
+          "Keymontr: Review suggested",
         );
     }
   }

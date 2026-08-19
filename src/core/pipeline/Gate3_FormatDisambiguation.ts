@@ -112,6 +112,12 @@ const NON_SECRET_FORMATS: NonSecretFormat[] = [
 
   // ── Network / infrastructure ──────────────────────────────────────────────
   {
+    name: "email-address",
+    pattern: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/,
+    multiplier: 0.1,
+    description: "Email address — public identifier, not a credential",
+  },
+  {
     name: "ipv4-address",
     pattern: /^(\d{1,3}\.){3}\d{1,3}$/,
     multiplier: 0.05,

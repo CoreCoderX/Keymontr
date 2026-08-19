@@ -22,7 +22,7 @@ export enum TokenType {
 }
 
 // Common programming language keywords to skip during identifier analysis
-const LANGUAGE_KEYWORDS = new Set([
+export const LANGUAGE_KEYWORDS = new Set([
   // JavaScript / TypeScript
   "const",
   "let",

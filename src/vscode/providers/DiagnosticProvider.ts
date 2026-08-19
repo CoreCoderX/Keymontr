@@ -7,7 +7,7 @@ import { PipelineResult } from "../../core/types/SecretFinding.js";
  * DiagnosticProvider — Renders VS Code diagnostics (squiggly underlines)
  * for detected secrets.
  *
- * Maps SecureShield severity levels to VS Code DiagnosticSeverity.
+ * Maps Keymontr severity levels to VS Code DiagnosticSeverity.
  * Maintains a DiagnosticCollection that VS Code reads from.
  */
 export class DiagnosticProvider {
@@ -79,7 +79,7 @@ export class DiagnosticProvider {
     const message = this.buildMessage(finding, confidencePct);
 
     const diagnostic = new vscode.Diagnostic(range, message, severity);
-    diagnostic.source = "SecureShield";
+    diagnostic.source = "Keymontr";
     diagnostic.code = {
       value: finding.detection.matchedRuleId ?? "generic-secret",
       target: vscode.Uri.parse(
@@ -96,7 +96,7 @@ export class DiagnosticProvider {
   private buildMessage(finding: SecretFinding, confidencePct: string): string {
     const parts: string[] = [];
 
-    parts.push(`SecureShield:`);
+    parts.push(`Keymontr:`);
 
     if (finding.detection.matchedRuleName !== undefined) {
       parts.push(finding.detection.matchedRuleName);
@@ -117,7 +117,7 @@ export class DiagnosticProvider {
   }
 
   /**
-   * Maps SecureShield severity to VS Code DiagnosticSeverity.
+   * Maps Keymontr severity to VS Code DiagnosticSeverity.
    */
   private mapSeverity(severity: SeverityLevel): vscode.DiagnosticSeverity {
     switch (severity) {

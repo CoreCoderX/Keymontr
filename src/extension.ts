@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { DatabaseManager } from "./database/DatabaseManager.js";
+import { DashboardPanel } from "./vscode/views/DashboardPanel.js";
 import { ConfigurationManager } from "./config/ConfigurationManager.js";
 import { Pipeline } from "./core/pipeline/Pipeline.js";
 import { Gate8_DeveloperMemory } from "./core/pipeline/Gate8_DeveloperMemory.js";
@@ -10,10 +11,10 @@ import {
 import { DeveloperMemoryStore } from "./storage/DeveloperMemoryStore.js";
 import { SecretHistoryStore } from "./storage/SecretHistoryStore.js";
 import { DiagnosticProvider } from "./vscode/providers/DiagnosticProvider.js";
-import { SecureShieldCodeActionProvider } from "./vscode/providers/CodeActionProvider.js";
-import { SecureShieldHoverProvider } from "./vscode/providers/HoverProvider.js";
-import { SecureShieldDecorationProvider } from "./vscode/providers/DecorationProvider.js";
-import { SecureShieldTreeDataProvider } from "./vscode/providers/TreeDataProvider.js";
+import { KeymontrCodeActionProvider } from "./vscode/providers/CodeActionProvider.js";
+import { KeymontrHoverProvider } from "./vscode/providers/HoverProvider.js";
+import { KeymontrDecorationProvider } from "./vscode/providers/DecorationProvider.js";
+import { KeymontrTreeDataProvider } from "./vscode/providers/TreeDataProvider.js";
 import { StatusBarManager } from "./vscode/views/StatusBarManager.js";
 import { RemediationOrchestrator } from "./remediation/RemediationOrchestrator.js";
 import { GitHookManager } from "./git/GitHookManager.js";
@@ -37,16 +38,16 @@ let gitIgnoreService: GitIgnoreService;
 
 
 /**
- * Extension activation — called once when VS Code loads SecureShield.
+ * Extension activation — called once when VS Code loads Keymontr.
  */
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   const outputChannel = vscode.window.createOutputChannel(
-    "SecureShield",
+    "Keymontr",
     "log",
   );
-  outputChannel.appendLine("[SecureShield] Activating...");
+  outputChannel.appendLine("[Keymontr] Activating...");
   context.subscriptions.push(outputChannel);
 
   // ── Workspace root ─────────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ export async function activate(
 
   const warnings = configManager.getValidationWarnings();
   for (const warning of warnings) {
-    outputChannel.appendLine(`[SecureShield] Config warning: ${warning}`);
+    outputChannel.appendLine(`[Keymontr] Config warning: ${warning}`);
   }
 
   // ── Database initialization ────────────────────────────────────────────────
@@ -72,17 +73,17 @@ export async function activate(
     await dbManager.initialize(context.extensionPath);
     const health = dbManager.getHealthReport();
     outputChannel.appendLine(
-      `[SecureShield] DB1 loaded: ${health.db1.ruleCount} rules`,
+      `[Keymontr] DB1 loaded: ${health.db1.ruleCount} rules`,
     );
     outputChannel.appendLine(
-      `[SecureShield] DB2 loaded: ${health.db2.keywordCount} keywords`,
+      `[Keymontr] DB2 loaded: ${health.db2.keywordCount} keywords`,
     );
   } catch (err) {
     outputChannel.appendLine(
-      `[SecureShield] CRITICAL: Database initialization failed: ${String(err)}`,
+      `[Keymontr] CRITICAL: Database initialization failed: ${String(err)}`,
     );
     await vscode.window.showErrorMessage(
-      `SecureShield: Database initialization failed. Extension may not work correctly. ${String(err)}`,
+      `Keymontr: Database initialization failed. Extension may not work correctly. ${String(err)}`,
     );
     return;
   }
@@ -101,10 +102,10 @@ export async function activate(
 
   // ── VS Code providers ──────────────────────────────────────────────────────
   const diagnosticProvider = new DiagnosticProvider();
-  const codeActionProvider = new SecureShieldCodeActionProvider();
-  const hoverProvider = new SecureShieldHoverProvider();
-  const decorationProvider = new SecureShieldDecorationProvider();
-  const treeProvider = new SecureShieldTreeDataProvider();
+  const codeActionProvider = new KeymontrCodeActionProvider();
+  const hoverProvider = new KeymontrHoverProvider();
+  const decorationProvider = new KeymontrDecorationProvider();
+  const treeProvider = new KeymontrTreeDataProvider();
   const statusBar = new StatusBarManager();
 
   context.subscriptions.push(diagnosticProvider);
@@ -179,6 +180,7 @@ export async function activate(
     gate8,
     cfg,
     workspaceRoot,
+    dbManager,
   );
   commandRegistry.registerAll();
 
@@ -310,7 +312,7 @@ export async function activate(
     // Offer to install Git hook
     if (gitHookManager.isGitRepository() && !gitHookManager.isHookInstalled()) {
       const choice = await vscode.window.showInformationMessage(
-        "SecureShield is active! Install Git pre-commit hook to block secret commits?",
+        "Keymontr is active! Install Git pre-commit hook to block secret commits?",
         "Install Hook",
         "Not Now",
         "Never",
@@ -346,7 +348,7 @@ export async function activate(
     }
   }
 
-  outputChannel.appendLine("[SecureShield] Activated successfully.");
+  outputChannel.appendLine("[Keymontr] Activated successfully.");
 }
 
 /**
@@ -360,10 +362,10 @@ async function scanFile(
   changedLines: number[] | undefined,
   pipeline: Pipeline,
   diagnosticProvider: DiagnosticProvider,
-  codeActionProvider: SecureShieldCodeActionProvider,
-  hoverProvider: SecureShieldHoverProvider,
-  decorationProvider: SecureShieldDecorationProvider,
-  treeProvider: SecureShieldTreeDataProvider,
+  codeActionProvider: KeymontrCodeActionProvider,
+  hoverProvider: KeymontrHoverProvider,
+  decorationProvider: KeymontrDecorationProvider,
+  treeProvider: KeymontrTreeDataProvider,
   statusBar: StatusBarManager,
   historyStore: SecretHistoryStore,
   outputChannel: vscode.OutputChannel,
@@ -406,6 +408,9 @@ async function scanFile(
     // Update tree view
     treeProvider.updateFindings(fileUri, result.findings);
 
+    // Update the open dashboard panel (no-op when closed)
+    DashboardPanel.updateFindingsIfOpen(result.findings);
+
     // Update file decoration
     const highestSeverity = getHighestSeverity(result.findings);
     decorationProvider.setFileRisk(fileUri, highestSeverity);
@@ -428,14 +433,14 @@ async function scanFile(
 
     if (result.findings.length > 0) {
       outputChannel.appendLine(
-        `[SecureShield] ${fileUri}: ${result.findings.length} finding(s) ` +
+        `[Keymontr] ${fileUri}: ${result.findings.length} finding(s) ` +
           `in ${result.stats.processingTimeMs}ms`,
       );
     }
   } catch (err) {
     statusBar.showError(String(err));
     outputChannel.appendLine(
-      `[SecureShield] Error scanning ${fileUri}: ${String(err)}`,
+      `[Keymontr] Error scanning ${fileUri}: ${String(err)}`,
     );
   }
 }
@@ -446,10 +451,10 @@ async function scanFile(
 async function performFullWorkspaceScan(
   pipeline: Pipeline,
   diagnosticProvider: DiagnosticProvider,
-  codeActionProvider: SecureShieldCodeActionProvider,
-  hoverProvider: SecureShieldHoverProvider,
-  decorationProvider: SecureShieldDecorationProvider,
-  treeProvider: SecureShieldTreeDataProvider,
+  codeActionProvider: KeymontrCodeActionProvider,
+  hoverProvider: KeymontrHoverProvider,
+  decorationProvider: KeymontrDecorationProvider,
+  treeProvider: KeymontrTreeDataProvider,
   statusBar: StatusBarManager,
   historyStore: SecretHistoryStore,
   outputChannel: vscode.OutputChannel,
@@ -462,7 +467,7 @@ async function performFullWorkspaceScan(
   );
 
   outputChannel.appendLine(
-    `[SecureShield] Full scan: ${files.length} files found`,
+    `[Keymontr] Full scan: ${files.length} files found`,
   );
 
   diagnosticProvider.clearAll();
@@ -475,7 +480,7 @@ async function performFullWorkspaceScan(
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "SecureShield: Scanning workspace...",
+      title: "Keymontr: Scanning workspace...",
       cancellable: true,
     },
     async (progress, token) => {
@@ -525,16 +530,16 @@ async function performFullWorkspaceScan(
   if (totalFindings === 0) {
     statusBar.showClean();
     await vscode.window.showInformationMessage(
-      `SecureShield: Workspace scan complete. ${scanned} files scanned. No secrets found.`,
+      `Keymontr: Workspace scan complete. ${scanned} files scanned. No secrets found.`,
     );
   } else {
     await vscode.window.showWarningMessage(
-      `SecureShield: Found ${totalFindings} potential secret(s) in ${scanned} files. Check the sidebar.`,
+      `Keymontr: Found ${totalFindings} potential secret(s) in ${scanned} files. Check the sidebar.`,
     );
   }
 
   outputChannel.appendLine(
-    `[SecureShield] Full scan complete: ${scanned} files, ${totalFindings} findings`,
+    `[Keymontr] Full scan complete: ${scanned} files, ${totalFindings} findings`,
   );
 }
 
@@ -557,7 +562,7 @@ function getHighestSeverity(findings: SecretFinding[]): SeverityLevel | null {
 }
 
 /**
- * Extension deactivation — called when VS Code unloads SecureShield.
+ * Extension deactivation — called when VS Code unloads Keymontr.
  */
 export function deactivate(): void {
   if (typingDebounceTimer !== undefined) {

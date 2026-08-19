@@ -30,6 +30,7 @@ export interface Gate4Result {
   layer4: StringGroupLayerResult;
   layer5: FileContextLayerResult;
   ruleEntropyThreshold: number;
+  candidate: SecretCandidate;
 }
 
 export class Gate4_Detection {
@@ -85,6 +86,7 @@ export class Gate4_Detection {
       layer4: layer4Result,
       layer5: layer5Result,
       ruleEntropyThreshold: entropyThreshold ?? 3.0,
+      candidate,
     };
   }
 }

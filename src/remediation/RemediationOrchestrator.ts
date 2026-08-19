@@ -121,7 +121,7 @@ export class RemediationOrchestrator {
     if (autoCreateEnvExample) {
       const exampleResult = this.envExampleGenerator.addKey(
         finding.remediation.suggestedEnvKey,
-        `Secret detected by SecureShield: ${finding.detection.matchedRuleName ?? finding.detection.matchedGroup ?? "unknown type"}`,
+        `Secret detected by Keymontr: ${finding.detection.matchedRuleName ?? finding.detection.matchedGroup ?? "unknown type"}`,
       );
       steps.push({
         name: "Update .env.example",
@@ -141,12 +141,12 @@ export class RemediationOrchestrator {
 
     if (allSuccess) {
       await vscode.window.showInformationMessage(
-        `SecureShield: Secret fixed! Moved to .env and code updated.`,
+        `Keymontr: Secret fixed! Moved to .env and code updated.`,
       );
     } else {
       const failed = steps.filter((s) => !s.success).map((s) => s.name);
       await vscode.window.showWarningMessage(
-        `SecureShield: Partial fix applied. Failed steps: ${failed.join(", ")}`,
+        `Keymontr: Partial fix applied. Failed steps: ${failed.join(", ")}`,
       );
     }
 

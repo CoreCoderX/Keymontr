@@ -8,7 +8,7 @@ import { DatabaseManager } from "../../database/DatabaseManager.js";
 import { SecretFinding } from "../../core/types/SecretFinding.js";
 
 /**
- * DashboardPanel — Manages the SecureShield webview dashboard.
+ * DashboardPanel — Manages the Keymontr webview dashboard.
  *
  * Uses VS Code's WebviewPanel API to render the HTML dashboard.
  * Communicates bidirectionally with the dashboard JS via postMessage.
@@ -61,8 +61,8 @@ export class DashboardPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "secureshieldDashboard",
-      "SecureShield Dashboard",
+      "keymontrDashboard",
+      "Keymontr Dashboard",
       column,
       {
         enableScripts: true,
@@ -98,6 +98,15 @@ export class DashboardPanel {
   public updateFindings(findings: SecretFinding[]): void {
     this.activeFindings = findings;
     this.postMessage("updateFindings", findings);
+  }
+
+  /**
+   * Updates the active findings on the open dashboard panel (no-op if closed).
+   */
+  public static updateFindingsIfOpen(findings: SecretFinding[]): void {
+    if (DashboardPanel.currentPanel !== undefined) {
+      DashboardPanel.currentPanel.updateFindings(findings);
+    }
   }
 
   /**

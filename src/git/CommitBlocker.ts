@@ -25,7 +25,7 @@ export class CommitBlocker {
 
     lines.push("");
     lines.push(`╔${border}╗`);
-    lines.push(`║${"  SECURESHIELD — SECRET DETECTION ALERT".padEnd(60)}║`);
+    lines.push(`║${"  KEYMONTR — SECRET DETECTION ALERT".padEnd(60)}║`);
     lines.push(`╠${border}╣`);
     lines.push(
       `║${"  Commit BLOCKED — secrets detected in staged files".padEnd(60)}║`,
@@ -57,7 +57,7 @@ export class CommitBlocker {
 
     lines.push(`  ${thinBorder}`);
     lines.push("  HOW TO FIX:");
-    lines.push("  1. Open VS Code — SecureShield will highlight the issues");
+    lines.push("  1. Open VS Code — Keymontr will highlight the issues");
     lines.push('  2. Click "Fix Now" to auto-move secrets to .env');
     lines.push("  3. Commit again after fixing");
     lines.push("");
@@ -67,7 +67,7 @@ export class CommitBlocker {
     lines.push(`  Scanned ${result.scannedFiles} file(s)`);
     lines.push(`╔${border}╗`);
     lines.push(
-      `║${"  SecureShield  •  Protecting your repository".padEnd(60)}║`,
+      `║${"  Keymontr  •  Protecting your repository".padEnd(60)}║`,
     );
     lines.push(`╚${border}╝`);
     lines.push("");
@@ -76,6 +76,6 @@ export class CommitBlocker {
   }
 
   private formatSuccessMessage(scannedFiles: number): string {
-    return `SecureShield: No secrets found in ${scannedFiles} staged file(s). Commit allowed.\n`;
+    return `Keymontr: No secrets found in ${scannedFiles} staged file(s). Commit allowed.\n`;
   }
 }

@@ -77,7 +77,7 @@ export type DB1KeywordIndex = Map<string, string[]>;
 export type DB2IdentifierIndex = Map<string, string>;
 
 /**
- * Custom rule defined by the developer in .secureshield.json.
+ * Custom rule defined by the developer in .keymontr.json.
  */
 export interface CustomRule {
   id: string;

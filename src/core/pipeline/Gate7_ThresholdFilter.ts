@@ -1,6 +1,6 @@
 import { ConfidenceBreakdown } from "../types/DetectionResult.js";
 import { SeverityLevel, severityFromScore } from "../types/SeverityLevel.js";
-import { SecureShieldConfig } from "../../config/ConfigurationManager.js";
+import { KeymontrConfig } from "../../config/ConfigurationManager.js";
 
 /**
  * Gate 7 — Minimum Threshold Filter
@@ -22,7 +22,7 @@ export interface Gate7Result {
 export class Gate7_ThresholdFilter {
   private readonly minimumToWarn: number;
 
-  constructor(config: SecureShieldConfig) {
+  constructor(config: KeymontrConfig) {
     this.minimumToWarn = config.detection.minimumConfidenceToWarn;
   }
 

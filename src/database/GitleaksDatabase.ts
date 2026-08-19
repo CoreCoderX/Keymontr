@@ -127,10 +127,49 @@ export class GitleaksDatabase {
       return null;
     }
 
+    if (!rule.regex || typeof rule.regex !== "string") {
+      return null;
+    }
+
+    let pattern = rule.regex;
+    let flags = "g";
+
+    // JavaScript RegExp does NOT support (?i) inline. We must strip it and use the 'i' flag.
+    const hasGlobalCaseInsensitive = pattern.includes("(?i)");
+    if (hasGlobalCaseInsensitive) {
+      pattern = pattern.replace(/\(\?i\)/g, "");
+      flags += "i";
+    }
+    // Also handle (?-i) if present (turn off case insensitive)
+    if (pattern.includes("(?-i)")) {
+      pattern = pattern.replace(/\(\?-i\)/g, "");
+    }
+    // Inline modifier groups (?-i:X) / (?i:X) are ES2025-only. Rewrite them
+    // to plain non-capturing groups so rules compile on every Node runtime
+    // (otherwise the whole rule is silently dropped — losing detection).
+    if (pattern.includes("(?-i:")) {
+      pattern = pattern.replace(/\(\?-i:/g, "(?:");
+    }
+    if (pattern.includes("(?i:")) {
+      if (!hasGlobalCaseInsensitive && !flags.includes("i")) {
+        flags += "i";
+      }
+      pattern = pattern.replace(/\(\?i:/g, "(?:");
+    }
+    // PCRE named groups (?P<name>) are Go/PCRE syntax — convert to JS named
+    // groups (?<name>) which preserve the capture index used by secretGroup.
+    if (pattern.includes("(?P<")) {
+      pattern = pattern.replace(/\(\?P<([A-Za-z_][A-Za-z0-9_]*)>/g, "(?<$1>");
+    }
+    // PCRE dotall group (?s:.) — JS has no inline s flag; any-character is [\s\S].
+    if (pattern.includes("(?s:.)")) {
+      pattern = pattern.replace(/\(\?s:\.\)/g, "[\\s\\S]");
+    }
+
     let compiledRegex: RegExp;
     try {
-      compiledRegex = new RegExp(rule.regex, "g");
-    } catch {
+      compiledRegex = new RegExp(pattern, flags);
+    } catch (_err) {
       // Rule has invalid regex — skip it
       return null;
     }
@@ -157,7 +196,9 @@ export class GitleaksDatabase {
       rawRegex: rule.regex,
       entropy: rule.entropy ?? 0,
       keywords: (rule.keywords ?? []).map((k) => k.toLowerCase()),
-      ...(compiledPathRegex !== undefined ? { pathRegex: compiledPathRegex } : {}),
+      ...(compiledPathRegex !== undefined
+        ? { pathRegex: compiledPathRegex }
+        : {}),
       secretGroup: rule.secretGroup ?? 0,
       allowlists: compiledAllowlists,
     };
@@ -187,7 +228,15 @@ export class GitleaksDatabase {
 
     for (const r of al.regexes ?? []) {
       try {
-        regexes.push(new RegExp(r, "i"));
+        // Normalize ES2025-only inline modifier groups so allowlist regexes
+        // compile on every Node runtime (see compileRule for details).
+        let normalized = r.replace(/\(\?-i\)/g, "");
+        normalized = normalized.replace(/\(\?-i:/g, "(?:");
+        normalized = normalized.replace(/\(\?i:/g, "(?:");
+        if (normalized.includes("(?i)")) {
+          normalized = normalized.replace(/\(\?i\)/g, "");
+        }
+        regexes.push(new RegExp(normalized, "i"));
       } catch {
         // Skip invalid
       }

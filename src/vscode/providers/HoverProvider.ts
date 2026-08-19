@@ -4,7 +4,7 @@ import { SEVERITY_LABELS } from "../../core/types/SeverityLevel.js";
 
 /**
  * HoverProvider — Shows detailed finding information when the developer
- * hovers over a SecureShield diagnostic.
+ * hovers over a Keymontr diagnostic.
  *
  * Displays:
  * - Severity and confidence score
@@ -13,7 +13,7 @@ import { SEVERITY_LABELS } from "../../core/types/SeverityLevel.js";
  * - Suggested remediation steps
  * - Quick actions
  */
-export class SecureShieldHoverProvider implements vscode.HoverProvider {
+export class KeymontrHoverProvider implements vscode.HoverProvider {
   private findingMap: Map<string, SecretFinding> = new Map();
 
   /**
@@ -78,7 +78,7 @@ export class SecureShieldHoverProvider implements vscode.HoverProvider {
     const label = SEVERITY_LABELS[finding.severity] ?? finding.severity;
     const confidence = (finding.confidence.finalScore * 100).toFixed(1);
 
-    md.appendMarkdown(`### SecureShield — ${label} Risk\n\n`);
+    md.appendMarkdown(`### Keymontr — ${label} Risk\n\n`);
 
     // Detection summary
     md.appendMarkdown(`**Confidence:** ${confidence}%\n\n`);

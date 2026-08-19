@@ -5,14 +5,14 @@ import { SecretFinding } from "../../core/types/SecretFinding.js";
  * CodeActionProvider — Provides Quick Fix actions for secret diagnostics.
  *
  * When the developer clicks the lightbulb icon or presses Ctrl+. on a
- * SecureShield diagnostic, these actions are shown:
+ * Keymontr diagnostic, these actions are shown:
  *
  * 1. Fix Now — move to .env and replace in code
  * 2. Mark as Safe — permanently suppress this finding
  * 3. Ignore Once — suppress for this session only
  * 4. View Details — show finding details in dashboard
  */
-export class SecureShieldCodeActionProvider
+export class KeymontrCodeActionProvider
   implements vscode.CodeActionProvider
 {
   // Map from diagnostic message fingerprint to finding ID
@@ -28,15 +28,15 @@ export class SecureShieldCodeActionProvider
   ): vscode.CodeAction[] {
     const actions: vscode.CodeAction[] = [];
 
-    const secureshieldDiagnostics = context.diagnostics.filter(
-      (d) => d.source === "SecureShield",
+    const keymontrDiagnostics = context.diagnostics.filter(
+      (d) => d.source === "Keymontr",
     );
 
-    if (secureshieldDiagnostics.length === 0) {
+    if (keymontrDiagnostics.length === 0) {
       return [];
     }
 
-    for (const diagnostic of secureshieldDiagnostics) {
+    for (const diagnostic of keymontrDiagnostics) {
       // Find the matching SecretFinding
       const finding = this.findFindingForDiagnostic(document, diagnostic);
 
@@ -95,7 +95,7 @@ export class SecureShieldCodeActionProvider
     _document: vscode.TextDocument,
   ): vscode.CodeAction {
     const action = new vscode.CodeAction(
-      `SecureShield: Fix — Move to .env (${finding.remediation.suggestedEnvKey})`,
+      `Keymontr: Fix — Move to .env (${finding.remediation.suggestedEnvKey})`,
       vscode.CodeActionKind.QuickFix,
     );
     action.diagnostics = [diagnostic];
@@ -113,7 +113,7 @@ export class SecureShieldCodeActionProvider
     finding: SecretFinding,
   ): vscode.CodeAction {
     const action = new vscode.CodeAction(
-      `SecureShield: Mark as Safe (suppress permanently)`,
+      `Keymontr: Mark as Safe (suppress permanently)`,
       vscode.CodeActionKind.QuickFix,
     );
     action.diagnostics = [diagnostic];
@@ -130,7 +130,7 @@ export class SecureShieldCodeActionProvider
     finding: SecretFinding,
   ): vscode.CodeAction {
     const action = new vscode.CodeAction(
-      `SecureShield: Ignore for this session`,
+      `Keymontr: Ignore for this session`,
       vscode.CodeActionKind.QuickFix,
     );
     action.diagnostics = [diagnostic];
@@ -144,7 +144,7 @@ export class SecureShieldCodeActionProvider
 
   private buildOpenDashboardAction(): vscode.CodeAction {
     const action = new vscode.CodeAction(
-      `SecureShield: Open Security Dashboard`,
+      `Keymontr: Open Security Dashboard`,
       vscode.CodeActionKind.Empty,
     );
     action.command = {

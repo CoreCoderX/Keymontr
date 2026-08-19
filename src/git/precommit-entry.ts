@@ -26,7 +26,7 @@ async function main(): Promise<void> {
 
   if (workspaceRoot === null) {
     process.stderr.write(
-      "[SecureShield] Could not find Git root. Allowing commit.\n",
+      "[Keymontr] Could not find Git root. Allowing commit.\n",
     );
     process.exit(0);
   }
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
 
   if (!fs.existsSync(db1Path) || !fs.existsSync(db2Path)) {
     process.stderr.write(
-      "[SecureShield] Database files not found. Allowing commit.\n",
+      "[Keymontr] Database files not found. Allowing commit.\n",
     );
     process.exit(0);
   }
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     }
   } catch (err) {
     process.stderr.write(
-      `[SecureShield] Scanner error: ${String(err)}\nAllowing commit (fail-open).\n`,
+      `[Keymontr] Scanner error: ${String(err)}\nAllowing commit (fail-open).\n`,
     );
     // Fail-open: do not block commits if the scanner itself crashes
     process.exit(0);

@@ -25,6 +25,8 @@ import { generateFindingId } from "../utils/HashUtils.js";
 import { buildCommentMap } from "../utils/LineClassifier.js";
 import { SeverityLevel } from "../types/SeverityLevel.js";
 import { FileRiskLevel } from "../types/DetectionResult.js";
+import { isGenericRule } from "../../database/CollisionResolver.js";
+import { LANGUAGE_KEYWORDS } from "../utils/Tokenizer.js";
 
 /**
  * Pipeline — Main Orchestrator
@@ -342,7 +344,12 @@ export class Pipeline {
     const matchedGroup = gate4Result.layer3.matchedGroups[0];
 
     // Generate env variable name suggestion
-    const suggestedEnvKey = this.suggestEnvKey(candidate, ruleId, matchedGroup);
+    const suggestedEnvKey = this.suggestEnvKey(
+      candidate,
+      ruleId,
+      matchedGroup,
+      gate4Result.layer3.contextSignals,
+    );
 
     return {
       id: generateFindingId(),
@@ -368,7 +375,7 @@ export class Pipeline {
       },
       suppression: {
         suppressionKey,
-        inlineIgnoreComment: "// secureshield-ignore",
+        inlineIgnoreComment: "// keymontr-ignore",
         isPermanentlySuppressed: false,
         isSessionSuppressed: false,
       },
@@ -385,43 +392,113 @@ export class Pipeline {
 
   /**
    * Suggests a descriptive environment variable key name for a finding.
+   *
+   * Priority:
+   *  1. Specific (non-generic) rule ID — e.g. aws-access-token → AWS_ACCESS_TOKEN
+   *  2. Assignment identifier on the candidate's own line (camelCase → SNAKE)
+   *     — e.g. paymentApiKey → PAYMENT_API_KEY, AZURE_STORAGE_KEY → AZURE_STORAGE_KEY
+   *  3. DB2 identifier hits
+   *  4. Specific context group (skips Generic Secrets / Common Aliases)
+   *  5. SECRET_KEY
    */
   private suggestEnvKey(
     candidate: { line: string; db2IdentifierHits: string[] },
     ruleId?: string,
     matchedGroup?: string,
+    contextSignals: Array<{
+      group: string;
+      distance: number;
+    }> = [],
   ): string {
-    // Try to extract from the line's assignment left-hand side
-    const assignmentMatch = candidate.line.match(
-      /(?:const|let|var|export|private|public)?\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*[:=]/,
-    );
-
-    if (assignmentMatch?.[1] !== undefined) {
-      const identifier = assignmentMatch[1];
-      return identifier.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-    }
-
-    // Try from DB2 identifier hits
-    if (candidate.db2IdentifierHits.length > 0) {
-      const id = candidate.db2IdentifierHits[0];
-      if (id !== undefined) {
-        return id.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-      }
-    }
-
-    // Fall back to rule-based name
-    if (ruleId !== undefined) {
-      return ruleId.toUpperCase().replace(/-/g, "_");
-    }
-
-    if (matchedGroup !== undefined) {
-      return matchedGroup
+    // 1. Specific rule ID — best name for provider-matched secrets
+    if (ruleId !== undefined && !isGenericRule(ruleId)) {
+      return ruleId
         .toUpperCase()
-        .replace(/\s+/g, "_")
+        .replace(/-/g, "_")
         .replace(/[^A-Z0-9_]/g, "");
     }
 
+    // 2. Assignment identifier on this line (e.g. `paymentApiKey: "..."`).
+    //    `return "..."` must NOT be used — "return" is a language keyword.
+    //    Structural keys ("command", "image", ...) are skipped — they are
+    //    not secret-related names.
+    const assignmentMatch = candidate.line.match(
+      /(?:const|let|var|export|private|public|protected|static|final)?\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*[:=]/,
+    );
+    if (
+      assignmentMatch?.[1] !== undefined &&
+      !LANGUAGE_KEYWORDS.has(assignmentMatch[1].toLowerCase()) &&
+      /(key|token|secret|pass|pwd|cred|auth|api|jwt|salt|hash|sid)/i.test(
+        assignmentMatch[1],
+      )
+    ) {
+      return this.toEnvSegment(this.camelToSnake(assignmentMatch[1]));
+    }
+
+    // 3. DB2 identifier hits
+    if (candidate.db2IdentifierHits.length > 0) {
+      const id = candidate.db2IdentifierHits[0];
+      if (id !== undefined) {
+        return this.toEnvSegment(this.camelToSnake(id));
+      }
+    }
+
+    // 4. Nearest context signal with a specific (non-generic) group
+    //    (distance ≤ 1 — the candidate's own line or an adjacent line).
+    const nearSignals = contextSignals
+      .filter((signal) => signal.distance <= 1)
+      .sort((a, b) => a.distance - b.distance);
+    for (const signal of nearSignals) {
+      if (
+        signal.group !== "Generic Secrets" &&
+        signal.group !== "Common Aliases & Casings"
+      ) {
+        return this.toEnvSegment(signal.group) + "_KEY";
+      }
+    }
+
+    // 5. Matched group — only when it is genuinely close to the candidate
+    //    (otherwise it describes an unrelated neighbor, e.g. a PostgreSQL
+    //    block 3 lines above a Redis password).
+    if (matchedGroup !== undefined) {
+      const nearest = contextSignals
+        .filter((signal) => signal.group === matchedGroup)
+        .reduce((min, signal) => Math.min(min, signal.distance), 99);
+      if (
+        nearest <= 1 &&
+        matchedGroup !== "Generic Secrets" &&
+        matchedGroup !== "Common Aliases & Casings"
+      ) {
+        return this.toEnvSegment(matchedGroup) + "_KEY";
+      }
+    }
+
     return "SECRET_KEY";
+  }
+
+  /**
+   * Converts camelCase/PascalCase identifiers to snake_case:
+   * paymentApiKey → payment_api_key, AWSKeyId → aws_key_id, AZURE_STORAGE_KEY stays.
+   */
+  private camelToSnake(text: string): string {
+    return text
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+      .toLowerCase();
+  }
+
+  /**
+   * Normalizes arbitrary text (group names, identifiers) into a clean
+   * UPPER_SNAKE env var segment. Non-alphanumeric runs (spaces, "&", "/",
+   * "-", etc.) collapse to a single underscore and edges are trimmed, so
+   * "Key & Token Abbreviations" becomes "KEY_TOKEN_ABBREVIATIONS" (not
+   * "KEY__TOKEN_ABBREVIATIONS").
+   */
+  private toEnvSegment(text: string): string {
+    return text
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
   }
 
   /**

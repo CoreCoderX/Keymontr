@@ -4,14 +4,16 @@ import { RemediationOrchestrator } from "../../remediation/RemediationOrchestrat
 import { DeveloperMemoryStore } from "../../storage/DeveloperMemoryStore.js";
 import { SecretHistoryStore } from "../../storage/SecretHistoryStore.js";
 import { GitHookManager } from "../../git/GitHookManager.js";
-import { SecureShieldTreeDataProvider } from "../providers/TreeDataProvider.js";
-import { SecureShieldDecorationProvider } from "../providers/DecorationProvider.js";
+import { KeymontrTreeDataProvider } from "../providers/TreeDataProvider.js";
+import { KeymontrDecorationProvider } from "../providers/DecorationProvider.js";
 import { DiagnosticProvider } from "../providers/DiagnosticProvider.js";
 import { Gate8_DeveloperMemory } from "../../core/pipeline/Gate8_DeveloperMemory.js";
-import { SecureShieldConfig } from "../../config/ConfigurationManager.js";
+import { KeymontrConfig } from "../../config/ConfigurationManager.js";
+import { DatabaseManager } from "../../database/DatabaseManager.js";
+import { DashboardPanel } from "../views/DashboardPanel.js";
 
 /**
- * CommandRegistry — Registers all VS Code commands for SecureShield.
+ * CommandRegistry — Registers all VS Code commands for Keymontr.
  *
  * All command handlers are defined here for centralized management.
  * Each command is pushed to context.subscriptions for automatic cleanup.
@@ -23,12 +25,13 @@ export class CommandRegistry {
     private readonly memoryStore: DeveloperMemoryStore,
     private readonly historyStore: SecretHistoryStore,
     private readonly gitHookManager: GitHookManager,
-    private readonly treeProvider: SecureShieldTreeDataProvider,
+    private readonly treeProvider: KeymontrTreeDataProvider,
     private readonly diagnosticProvider: DiagnosticProvider,
-    private readonly decorationProvider: SecureShieldDecorationProvider,
+    private readonly decorationProvider: KeymontrDecorationProvider,
     private readonly gate8: Gate8_DeveloperMemory,
-    private readonly config: SecureShieldConfig,
+    private readonly config: KeymontrConfig,
     private readonly workspaceRoot: string,
+    private readonly dbManager: DatabaseManager,
   ) {}
 
   /**
@@ -66,12 +69,19 @@ export class CommandRegistry {
     this.context.subscriptions.push(disposable);
   }
 
+  /**
+   * Pushes the current findings to the open dashboard panel (no-op if closed).
+   */
+  private refreshDashboard(): void {
+    DashboardPanel.updateFindingsIfOpen(this.treeProvider.getAllFindings());
+  }
+
   // ── Command Handlers ──────────────────────────────────────────────────────
 
   private async onFixSecret(finding?: SecretFinding): Promise<void> {
     if (finding === undefined) {
       await vscode.window.showErrorMessage(
-        "SecureShield: No finding provided to fix",
+        "Keymontr: No finding provided to fix",
       );
       return;
     }
@@ -93,6 +103,7 @@ export class CommandRegistry {
       this.diagnosticProvider.clearFile(vscode.Uri.file(outcome.envFilePath));
       this.decorationProvider.setFileRisk(outcome.envFilePath, null);
       this.treeProvider.updateFindings(outcome.envFilePath, []);
+      this.refreshDashboard();
     }
   }
 
@@ -122,8 +133,9 @@ export class CommandRegistry {
     this.diagnosticProvider.clearFile(vscode.Uri.file(finding.meta.fileUri));
 
     await vscode.window.showInformationMessage(
-      `SecureShield: Finding marked as safe and permanently suppressed.`,
+      `Keymontr: Finding marked as safe and permanently suppressed.`,
     );
+    this.refreshDashboard();
   }
 
   private onIgnoreOnce(finding?: SecretFinding): void {
@@ -139,11 +151,16 @@ export class CommandRegistry {
     );
 
     this.diagnosticProvider.clearFile(vscode.Uri.file(finding.meta.fileUri));
+    this.refreshDashboard();
   }
 
-  private async onOpenDashboard(): Promise<void> {
-    await vscode.commands.executeCommand(
-      "workbench.view.extension.keymontr-sidebar",
+  private onOpenDashboard(): void {
+    DashboardPanel.createOrShow(
+      this.context.extensionUri,
+      this.historyStore,
+      this.gitHookManager,
+      this.dbManager,
+      this.treeProvider.getAllFindings(),
     );
   }
 
@@ -166,7 +183,7 @@ export class CommandRegistry {
 
     const saveUri = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.file(
-        `${this.workspaceRoot}/secureshield-report-${Date.now()}.json`,
+        `${this.workspaceRoot}/keymontr-report-${Date.now()}.json`,
       ),
       filters: { "JSON Report": ["json"] },
     });
@@ -178,7 +195,7 @@ export class CommandRegistry {
         Buffer.from(content, "utf-8"),
       );
       await vscode.window.showInformationMessage(
-        `SecureShield: Report exported to ${saveUri.fsPath}`,
+        `Keymontr: Report exported to ${saveUri.fsPath}`,
       );
     }
   }
@@ -186,7 +203,7 @@ export class CommandRegistry {
   private async onInstallGitHook(): Promise<void> {
     if (!this.gitHookManager.isGitRepository()) {
       await vscode.window.showErrorMessage(
-        "SecureShield: No Git repository found in workspace",
+        "Keymontr: No Git repository found in workspace",
       );
       return;
     }
@@ -198,23 +215,23 @@ export class CommandRegistry {
     if (result.success) {
       if (result.alreadyInstalled) {
         await vscode.window.showInformationMessage(
-          "SecureShield: Git pre-commit hook is already installed.",
+          "Keymontr: Git pre-commit hook is already installed.",
         );
       } else {
         await vscode.window.showInformationMessage(
-          `SecureShield: Git pre-commit hook installed at ${result.hookPath}`,
+          `Keymontr: Git pre-commit hook installed at ${result.hookPath}`,
         );
       }
     } else {
       await vscode.window.showErrorMessage(
-        `SecureShield: Failed to install hook — ${result.error ?? "unknown error"}`,
+        `Keymontr: Failed to install hook — ${result.error ?? "unknown error"}`,
       );
     }
   }
 
   private async onRemoveGitHook(): Promise<void> {
     const confirm = await vscode.window.showWarningMessage(
-      "Remove SecureShield Git pre-commit hook?",
+      "Remove Keymontr Git pre-commit hook?",
       { modal: true },
       "Remove",
     );
@@ -230,18 +247,18 @@ export class CommandRegistry {
         ? "Previous hook restored."
         : "Hook removed.";
       await vscode.window.showInformationMessage(
-        `SecureShield: Git hook removed. ${detail}`,
+        `Keymontr: Git hook removed. ${detail}`,
       );
     } else {
       await vscode.window.showErrorMessage(
-        `SecureShield: ${result.error ?? "Failed to remove hook"}`,
+        `Keymontr: ${result.error ?? "Failed to remove hook"}`,
       );
     }
   }
 
   private async onClearHistory(): Promise<void> {
     const confirm = await vscode.window.showWarningMessage(
-      "Clear all SecureShield detection history and statistics?",
+      "Clear all Keymontr detection history and statistics?",
       { modal: true },
       "Clear All",
     );
@@ -255,13 +272,13 @@ export class CommandRegistry {
     this.diagnosticProvider.clearAll();
 
     await vscode.window.showInformationMessage(
-      "SecureShield: History and statistics cleared.",
+      "Keymontr: History and statistics cleared.",
     );
   }
 
   private async onScanWorkspace(): Promise<void> {
     await vscode.window.showInformationMessage(
-      "SecureShield: Workspace scan started. Results will appear in the sidebar.",
+      "Keymontr: Workspace scan started. Results will appear in the sidebar.",
     );
     await vscode.commands.executeCommand("keymontr.internalFullScan");
   }

@@ -196,15 +196,25 @@ normal (`1.0x`), elevated (`1.2x`), and high (`1.4x`). A hardcoded value in a
 ```
 BASE = (0.35 x regex) + (0.20 x entropy) + (0.20 x context)
      + (0.15 x stringGroup) + (0.10 x fileContext)
+     + synergyBonus (0.28 for no-regex-match findings with
+                     entropy >= 0.6 AND context >= 0.4)
 
 FINAL = BASE x fileRiskMultiplier x allowlistMultiplier
               x placeholderMultiplier x formatMultiplier
 ```
 
+The synergy bonus rewards corroboration between independent engines
+(entropy and context) when no regex rule matched — it is never stacked on
+top of an actual provider rule match.
+
 Hard overrides:
 
-- Known provider match -> floor at 0.90
-- Inline ignore comment -> 0.00
+- Known provider regex match -> floor at 0.90
+- Generic rule match + same-line provider-context signal -> floor at 0.90
+- PEM private-key header (`-----BEGIN ... PRIVATE KEY-----`) -> floor at 0.90
+- Inline ignore comment / allowlist -> 0.00
+- Identifier-shaped value with entropy < 3.0 (a field/key name, e.g.
+  `private_key`) -> 0.00
 
 Severity is derived from the final score:
 

@@ -9,9 +9,9 @@ import {
 import { CustomRule } from "../core/types/RuleDefinition.js";
 
 /**
- * Full configuration schema for SecureShield.
+ * Full configuration schema for Keymontr.
  */
-export interface SecureShieldConfig {
+export interface KeymontrConfig {
   version: number;
   detection: {
     sensitivity: "strict" | "balanced" | "relaxed";
@@ -69,7 +69,7 @@ export interface SecureShieldConfig {
  * Merges user config with defaults so all fields always have a value.
  */
 export class ConfigurationManager {
-  private config: SecureShieldConfig = structuredClone(DEFAULT_CONFIG);
+  private config: KeymontrConfig = structuredClone(DEFAULT_CONFIG);
   private validator = new ConfigValidator();
   private configFilePath: string | null = null;
   private validationWarnings: string[] = [];
@@ -128,7 +128,7 @@ export class ConfigurationManager {
     }
 
     this.validationWarnings = validation.warnings;
-    this.config = this.mergeWithDefaults(parsed as Partial<SecureShieldConfig>);
+    this.config = this.mergeWithDefaults(parsed as Partial<KeymontrConfig>);
   }
 
   /**
@@ -136,8 +136,8 @@ export class ConfigurationManager {
    * User values override defaults, missing fields use defaults.
    */
   private mergeWithDefaults(
-    userConfig: Partial<SecureShieldConfig>,
-  ): SecureShieldConfig {
+    userConfig: Partial<KeymontrConfig>,
+  ): KeymontrConfig {
     const defaults = structuredClone(DEFAULT_CONFIG);
 
     return {
@@ -180,7 +180,7 @@ export class ConfigurationManager {
   /**
    * Returns the effective configuration.
    */
-  public getConfig(): SecureShieldConfig {
+  public getConfig(): KeymontrConfig {
     return this.config;
   }
 

@@ -56,7 +56,7 @@ function makeFinding(suggestedEnvKey: string, value: string): SecretFinding {
     },
     suppression: {
       suppressionKey: "test",
-      inlineIgnoreComment: "// secureshield-ignore",
+      inlineIgnoreComment: "// keymontr-ignore",
       isPermanentlySuppressed: false,
       isSessionSuppressed: false,
     },

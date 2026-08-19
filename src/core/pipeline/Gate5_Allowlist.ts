@@ -10,7 +10,7 @@ import { CompiledAllowlist } from "../types/RuleDefinition.js";
  *
  * Level 1: DB1 rule-level allowlists (from Gitleaks — very precise)
  * Level 2: Global built-in allowlists (common false positive patterns)
- * Level 3: Developer-defined allowlists (from .secureshield.json + inline comments)
+ * Level 3: Developer-defined allowlists (from .keymontr.json + inline comments)
  *
  * If any allowlist matches, the multiplier drops to 0.02 (effectively suppressed).
  */
@@ -58,7 +58,7 @@ const GLOBAL_STOPWORDS: string[] = [
 
 // Inline suppression comment patterns
 const INLINE_IGNORE_PATTERNS: RegExp[] = [
-  /secureshield-ignore/i,
+  /keymontr-ignore/i,
   /nosec\b/i,
   /noqa\b/i,
   /pragma:\s*allowlist\s+secret/i,

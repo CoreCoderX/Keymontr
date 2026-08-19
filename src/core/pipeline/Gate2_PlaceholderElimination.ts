@@ -162,11 +162,22 @@ export class Gate2_PlaceholderElimination {
   /**
    * Evaluates surrounding context for placeholder indicators.
    * Returns 1.0 if no placeholder context found, lower if found.
+   *
+   * Only the candidate's own line and its IMMEDIATE neighbors (±1) are
+   * scanned. Scanning the full ±5 window lets an unrelated comment like
+   * "// Placeholder example below" (lines away from the secret) wrongly
+   * suppress a real credential.
    */
   private evaluateContext(candidate: SecretCandidate): number {
-    const lineAndSurrounding = [candidate.line, ...candidate.surroundingLines]
-      .join(" ")
-      .toLowerCase();
+    const half = Math.floor(candidate.surroundingLines.length / 2);
+    const adjacent = [
+      candidate.surroundingLines[half - 1],
+      candidate.surroundingLines[half],
+    ]
+      .filter((l): l is string => l !== undefined)
+      .join(" ");
+
+    const lineAndSurrounding = `${candidate.line} ${adjacent}`.toLowerCase();
 
     const contextPlaceholderPhrases = [
       "example.com",

@@ -32,8 +32,8 @@
           },
           "background": {
             "activeOnStart": true,
-            "beginsPattern": "\\[SecureShield\\] Watching",
-            "endsPattern": "\\[SecureShield\\] Build complete"
+            "beginsPattern": "\\[Keymontr\\] Watching",
+            "endsPattern": "\\[Keymontr\\] Build complete"
           }
         }
       ],

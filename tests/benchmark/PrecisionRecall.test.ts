@@ -118,8 +118,8 @@ const BENCHMARK_CASES: BenchmarkCase[] = [
     expectFinding: false,
   },
   {
-    description: "Inline secureshield-ignore comment",
-    code: `const key = "sk-proj-AbCdEfGhIjKlT3BlbkFJMnOpQr"; // secureshield-ignore`,
+    description: "Inline keymontr-ignore comment",
+    code: `const key = "sk-proj-AbCdEfGhIjKlT3BlbkFJMnOpQr"; // keymontr-ignore`,
     fileName: "config.ts",
     expectFinding: false,
   },
@@ -308,7 +308,7 @@ describe("Precision/Recall Benchmark", () => {
       (2 * precision * recall) / Math.max(0.001, precision + recall);
 
     console.log("\n╔══════════════════════════════════════╗");
-    console.log("║  SecureShield Benchmark Results      ║");
+    console.log("║  Keymontr Benchmark Results      ║");
     console.log("╠══════════════════════════════════════╣");
     console.log(`║  Total Cases:     ${String(total).padEnd(18)} ║`);
     console.log(`║  True Positives:  ${String(truePositives).padEnd(18)} ║`);

@@ -129,7 +129,7 @@ export class EnvFileMigrator {
     // Build the new entry
     const timestamp =
       new Date().toISOString().split("T")[0] ?? new Date().toISOString();
-    const entryComment = `# Added by SecureShield on ${timestamp}`;
+    const entryComment = `# Added by Keymontr on ${timestamp}`;
     const entryLine = `${envKey}=${envValue}`;
     const newEntry =
       existingContent.length > 0

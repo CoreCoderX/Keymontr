@@ -100,7 +100,14 @@ export class Gate1_PreFilter {
 
     // If no hits from either source, this line is clean
     if (db1Hits.length === 0 && db2Hits.length === 0) {
-      return this.notPassed("No keyword hits");
+      // Context pass-through: a secret VALUE is often isolated on its own
+      // line (e.g. `return "P@ssw0rd!2024";`) while the secret-carrying
+      // identifier sits on the line above/below. If an adjacent line (±1)
+      // contains a DB1 keyword hit, still evaluate this line's literals —
+      // deeper layers decide whether it really is a secret.
+      if (!this.hasAdjacentDb1Hit(surroundingLines)) {
+        return this.notPassed("No keyword hits");
+      }
     }
 
     // ── Extract string literal candidates ───────────────────────────────────
@@ -150,6 +157,30 @@ export class Gate1_PreFilter {
       db2Hits,
       reason: `DB1 hits: [${db1Hits.slice(0, 3).join(", ")}] DB2 hits: [${db2Hits.slice(0, 3).join(", ")}]`,
     };
+  }
+
+  /**
+   * Checks whether either adjacent line (±1) contains a DB1 keyword hit.
+   * surroundingLines layout: first half = lines BEFORE, second half = AFTER.
+   */
+  private hasAdjacentDb1Hit(surroundingLines: string[]): boolean {
+    if (surroundingLines.length === 0) {
+      return false;
+    }
+    const half = Math.floor(surroundingLines.length / 2);
+    const adjacent = [surroundingLines[half - 1], surroundingLines[half]];
+    for (const adj of adjacent) {
+      if (adj === undefined) {
+        continue;
+      }
+      const adjLower = adj.toLowerCase();
+      for (const keyword of this.db1KeywordSet) {
+        if (adjLower.includes(keyword)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private notPassed(reason: string): Gate1Result {

@@ -53,6 +53,16 @@ function makeGate4Result(overrides: Partial<Gate4Result> = {}): Gate4Result {
       score: 0.7,
     },
     ruleEntropyThreshold: 3.0,
+    candidate: {
+      value: "xK9mP2qR5vN8wL1jB4hT7yZ0cA3eFgDi6uS",
+      lineNumber: 0,
+      startChar: 0,
+      endChar: 20,
+      line: 'const API_KEY = "xK9mP2qR5vN8wL1jB4hT7yZ0cA3eFgDi6uS";',
+      surroundingLines: [],
+      db1KeywordHits: [],
+      db2IdentifierHits: [],
+    },
     ...overrides,
   };
 }

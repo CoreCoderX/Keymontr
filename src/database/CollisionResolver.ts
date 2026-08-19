@@ -1,6 +1,26 @@
 import { CompiledRule } from "../core/types/RuleDefinition.js";
 
 /**
+ * Rule IDs that are broad catch-alls. When multiple rules tie at the same
+ * score, these must LOSE the tie-breaker so that specific provider rules
+ * (e.g. openai-api-key, sendgrid-api-token) win over generic-api-key.
+ */
+const GENERIC_RULE_PREFIXES = ["generic-"];
+
+export function isGenericRule(ruleId: string): boolean {
+  return GENERIC_RULE_PREFIXES.some((prefix) =>
+    ruleId.toLowerCase().startsWith(prefix),
+  );
+}
+
+/**
+ * Generic catch-all rules (generic-api-key, generic-secret) are only
+ * "shape" matches — a keyword plus a high-entropy-looking value. They are
+ * strictly weaker evidence than a specific provider regex, so they score
+ * lower and never receive the known-provider confidence floor.
+ */
+
+/**
  * Handles keyword collisions in DB1 where multiple rules share the same keyword.
  *
  * Gitleaks has 37 known keyword collisions (e.g., "twitter" × 5 rules).
@@ -27,8 +47,20 @@ export class CollisionResolver {
       }
     }
 
-    // Sort by score descending (best match first)
-    results.sort((a, b) => b.score - a.score);
+    // Sort by score descending (best match first), then break ties so that
+    // specific provider rules beat generic catch-all rules (generic-api-key).
+    results.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      const aGeneric = isGenericRule(a.ruleId) ? 1 : 0;
+      const bGeneric = isGenericRule(b.ruleId) ? 1 : 0;
+      if (aGeneric !== bGeneric) {
+        return aGeneric - bGeneric;
+      }
+      // Deterministic tie-break regardless of insertion order
+      return a.ruleId.localeCompare(b.ruleId);
+    });
 
     return results;
   }
@@ -62,10 +94,25 @@ export class CollisionResolver {
         ruleName: rule.description,
         matchedValue:
           valueMatch[rule.secretGroup] ?? valueMatch[0] ?? candidateValue,
-        score: 0.85, // Partial match — value only, not full line
+        score: isGenericRule(rule.id) ? 0.6 : 0.85, // Partial match — value only, not full line
         isFullLineMatch: false,
         entropy: rule.entropy,
       };
+    }
+
+    // Only accept a full-line match if it actually overlaps the candidate
+    // value. Otherwise a rule matching one literal on a multi-literal line
+    // (e.g. a PEM block) would also label an unrelated literal (e.g. the
+    // identifier "private_key") as the same secret.
+    const matchStart = match.index;
+    const matchEnd = match.index + match[0].length;
+    const valueIndex = fullLine.indexOf(candidateValue);
+    if (valueIndex !== -1) {
+      const valueStart = valueIndex;
+      const valueEnd = valueIndex + candidateValue.length;
+      if (valueEnd <= matchStart || valueStart >= matchEnd) {
+        return null;
+      }
     }
 
     // Full line match — highest confidence
@@ -75,7 +122,7 @@ export class CollisionResolver {
       ruleId: rule.id,
       ruleName: rule.description,
       matchedValue,
-      score: 0.92, // Full line regex match = very high confidence
+      score: isGenericRule(rule.id) ? 0.8 : 0.92, // Full line regex match = very high confidence
       isFullLineMatch: true,
       entropy: rule.entropy,
     };

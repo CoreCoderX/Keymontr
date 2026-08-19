@@ -5,7 +5,7 @@ import * as vscode from "vscode";
  *
  * This is purely INFORMATIONAL. It does NOT block or interfere with
  * any AI assistant. It only shows a one-time notice if an AI assistant
- * is detected running alongside SecureShield.
+ * is detected running alongside Keymontr.
  *
  * The notice reminds developers to be mindful about sharing
  * sensitive files or credentials with AI assistants.
@@ -30,7 +30,7 @@ const KNOWN_AI_ASSISTANT_EXTENSIONS: Array<{
   { id: "supermaven.supermaven", name: "Supermaven" },
 ];
 
-const NOTICE_SHOWN_KEY = "secureshield.aiAssistantNoticeShown";
+const NOTICE_SHOWN_KEY = "keymontr.aiAssistantNoticeShown";
 
 export class AIAssistantDetector {
   constructor(private readonly context: vscode.ExtensionContext) {}
@@ -70,7 +70,7 @@ export class AIAssistantDetector {
     const names = detected.map((d) => d.name).join(", ");
 
     const action = await vscode.window.showInformationMessage(
-      `🤖 SecureShield: ${names} detected. ` +
+      `Keymontr: ${names} detected. ` +
         `Be mindful when sharing sensitive files or credentials with AI assistants.`,
       "Got it",
       "Learn More",
@@ -81,7 +81,7 @@ export class AIAssistantDetector {
     if (action === "Learn More") {
       await vscode.env.openExternal(
         vscode.Uri.parse(
-          "https://github.com/secureshield/secureshield-ide#ai-assistant-notice",
+          "https://github.com/CoreCoderX/Keymontr#ai-assistant-notice",
         ),
       );
     }

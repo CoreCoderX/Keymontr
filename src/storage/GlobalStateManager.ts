@@ -60,7 +60,7 @@ export class GlobalStateManager {
   }
 
   /**
-   * Clears all keys managed by SecureShield.
+   * Clears all keys managed by Keymontr.
    * Iterates known keys and removes them.
    */
   public async clearAll(knownKeys: string[]): Promise<void> {
@@ -71,14 +71,14 @@ export class GlobalStateManager {
 }
 
 /**
- * All storage keys used by SecureShield.
+ * All storage keys used by Keymontr.
  * Centralized to avoid typos and enable easy clearing.
  */
 export const STORAGE_KEYS = {
-  PERMANENT_SUPPRESSIONS: "secureshield.permanentSuppressions",
-  SECRET_HISTORY: "secureshield.secretHistory",
-  STATISTICS: "secureshield.statistics",
-  GIT_HOOK_INSTALLED: "secureshield.gitHookInstalled",
-  FIRST_ACTIVATION: "secureshield.firstActivation",
-  LAST_FULL_SCAN: "secureshield.lastFullScan",
+  PERMANENT_SUPPRESSIONS: "keymontr.permanentSuppressions",
+  SECRET_HISTORY: "keymontr.secretHistory",
+  STATISTICS: "keymontr.statistics",
+  GIT_HOOK_INSTALLED: "keymontr.gitHookInstalled",
+  FIRST_ACTIVATION: "keymontr.firstActivation",
+  LAST_FULL_SCAN: "keymontr.lastFullScan",
 } as const;

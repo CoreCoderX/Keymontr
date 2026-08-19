@@ -3,7 +3,7 @@ import { execSync } from "child_process";
 import { Pipeline } from "../core/pipeline/Pipeline.js";
 import { PipelineResult } from "../core/types/SecretFinding.js";
 import { SeverityLevel } from "../core/types/SeverityLevel.js";
-import { SecureShieldConfig } from "../config/ConfigurationManager.js";
+import { KeymontrConfig } from "../config/ConfigurationManager.js";
 
 export interface PreCommitScanResult {
   blocked: boolean;
@@ -30,7 +30,7 @@ export class PreCommitScanner {
   constructor(
     private readonly pipeline: Pipeline,
     private readonly workspaceRoot: string,
-    private readonly config: SecureShieldConfig,
+    private readonly config: KeymontrConfig,
   ) {}
 
   /**
