@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none';
+             style-src 'unsafe-inline' {{CSP_SOURCE}};
+             script-src 'nonce-{{NONCE}}' {{CSP_SOURCE}};
+             img-src data: {{CSP_SOURCE}};"
+  />
+  <title>Keymontr Dashboard</title>
+  <link rel="stylesheet" href="{{DASHBOARD_CSS_URI}}" />
+</head>
+<body class="vscode-dark">
+
+  <!-- ── Header ────────────────────────────────────────────────────────────── -->
+  <header class="km-header">
+    <div class="km-header__brand">
+      <div class="km-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      </div>
+      <div class="km-header__title">
+        <h1>Keymontr</h1>
+        <p>Intelligent Secret Leakage Prevention</p>
+      </div>
+    </div>
+    <div class="km-header__right">
+      <span class="km-status-pill km-status-pill--neutral" id="headerStatusPill">
+        <span class="km-status-pill__dot"></span>
+        <span id="headerStatusText">Checking…</span>
+      </span>
+      <button class="km-btn km-btn--primary" id="btnScanWorkspace">
+        <svg class="km-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="M21 21l-4.35-4.35" />
+        </svg>
+        Scan Workspace
+      </button>
+      <button class="km-btn km-btn--ghost" id="btnExportReport">
+        <svg class="km-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        Export
+      </button>
+    </div>
+  </header>
+
+  <main class="km-main">
+
+    <!-- ── Hero / workspace status ─────────────────────────────────────────── -->
+    <section class="km-card km-hero" id="statusHero">
+      <div class="km-hero__icon" id="statusIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      </div>
+      <div class="km-hero__text">
+        <h2 id="statusTitle">Checking workspace…</h2>
+        <p id="statusSubtitle">Running initial analysis</p>
+      </div>
+      <div class="km-hero__chips">
+        <div class="km-chip km-chip--danger">
+          <span class="km-chip__value" id="heroActive">0</span>
+          <span class="km-chip__label">Active</span>
+        </div>
+        <div class="km-chip km-chip--success">
+          <span class="km-chip__value" id="heroFixed">0</span>
+          <span class="km-chip__label">Fixed</span>
+        </div>
+        <div class="km-chip km-chip--muted">
+          <span class="km-chip__value" id="heroSuppressed">0</span>
+          <span class="km-chip__label">Suppressed</span>
+        </div>
+        <div class="km-chip km-chip--info">
+          <span class="km-chip__value" id="heroBlocked">0</span>
+          <span class="km-chip__label">Commits Blocked</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Statistics cards ─────────────────────────────────────────────────── -->
+    <section class="km-stats">
+      <div class="km-card km-stat km-stat--accent">
+        <div class="km-stat__value" id="statTotal">0</div>
+        <div class="km-stat__label">Total Detected</div>
+      </div>
+      <div class="km-card km-stat km-stat--success">
+        <div class="km-stat__value" id="statFixed">0</div>
+        <div class="km-stat__label">Fixed</div>
+      </div>
+      <div class="km-card km-stat km-stat--danger">
+        <div class="km-stat__value" id="statActive">0</div>
+        <div class="km-stat__label">Active Issues</div>
+      </div>
+      <div class="km-card km-stat km-stat--muted">
+        <div class="km-stat__value" id="statSuppressed">0</div>
+        <div class="km-stat__label">Suppressed</div>
+      </div>
+      <div class="km-card km-stat km-stat--info">
+        <div class="km-stat__value" id="statBlocked">0</div>
+        <div class="km-stat__label">Commits Blocked</div>
+      </div>
+    </section>
+
+    <!-- ── Risk distribution + secret types ─────────────────────────────────── -->
+    <section class="km-grid-2">
+      <div class="km-card">
+        <div class="km-card__header">
+          <h3>Risk Distribution</h3>
+          <span class="km-card__hint">By severity</span>
+        </div>
+        <div class="km-donut-wrap">
+          <div class="km-donut">
+            <svg id="donutSvg" viewBox="0 0 120 120" role="img" aria-label="Risk distribution chart"></svg>
+            <div class="km-donut__center">
+              <div class="km-donut__total" id="donutTotal">0</div>
+              <div class="km-donut__label">active</div>
+            </div>
+          </div>
+          <div class="km-legend" id="donutLegend"></div>
+        </div>
+      </div>
+
+      <div class="km-card">
+        <div class="km-card__header">
+          <h3>Secret Types Detected</h3>
+          <span class="km-card__hint" id="typesCount">0 types</span>
+        </div>
+        <div class="km-bars" id="typesBars">
+          <div class="km-empty">No secrets detected yet</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Findings + side panel ────────────────────────────────────────────── -->
+    <section class="km-grid-main">
+      <div class="km-card">
+        <div class="km-card__header">
+          <h3>Active Findings</h3>
+          <span class="km-card__hint" id="findingsCount">0 findings</span>
+        </div>
+        <div class="km-toolbar">
+          <div class="km-search">
+            <svg class="km-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input type="text" id="searchInput" placeholder="Search file or type…" />
+          </div>
+          <select id="filterSeverity" class="km-select">
+            <option value="all">All severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+            <option value="informational">Informational</option>
+          </select>
+        </div>
+        <div class="km-table-wrap">
+          <table class="km-table">
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>File</th>
+                <th>Line</th>
+                <th>Type</th>
+                <th>Confidence</th>
+                <th class="km-table__right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="findingsTableBody">
+              <tr class="km-table__empty">
+                <td colspan="6"><div class="km-empty">No active findings</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="km-side">
+        <div class="km-card">
+          <div class="km-card__header">
+            <h3>Git Protection</h3>
+            <span class="km-card__hint" id="gitStatusHint"></span>
+          </div>
+          <div class="km-git">
+            <div class="km-git__row">
+              <span class="km-dot km-dot--neutral" id="gitIcon"></span>
+              <span id="gitLabel">Checking…</span>
+            </div>
+            <div class="km-git__actions">
+              <button class="km-btn km-btn--primary km-btn--sm" id="btnInstallHook">Install Hook</button>
+              <button class="km-btn km-btn--danger km-btn--sm" id="btnRemoveHook" style="display:none">
+                Remove Hook
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="km-card">
+          <div class="km-card__header">
+            <h3>Database Status</h3>
+            <span class="km-card__hint">Detection engines</span>
+          </div>
+          <div class="km-db">
+            <div class="km-db__row">
+              <div class="km-db__info">
+                <span class="km-db__name">Regex Rules (DB1)</span>
+                <span class="km-db__detail" id="db1Detail">—</span>
+              </div>
+              <span class="km-badge km-badge--neutral" id="db1Status">Loading…</span>
+            </div>
+            <div class="km-db__row">
+              <div class="km-db__info">
+                <span class="km-db__name">Identifiers (DB2)</span>
+                <span class="km-db__detail" id="db2Detail">—</span>
+              </div>
+              <span class="km-badge km-badge--neutral" id="db2Status">Loading…</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="km-card">
+          <div class="km-card__header">
+            <h3>Detections Over Time</h3>
+            <span class="km-card__hint" id="sparklineHint">Last 14 days</span>
+          </div>
+          <div class="km-sparkline">
+            <svg id="sparklineSvg" viewBox="0 0 280 96" preserveAspectRatio="none" role="img"
+                 aria-label="Detections over time"></svg>
+            <div class="km-sparkline__empty" id="sparklineEmpty" style="display:none">
+              No history yet
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ── Detection history ─────────────────────────────────────────────────── -->
+    <section class="km-card">
+      <div class="km-card__header">
+        <h3>Detection History</h3>
+        <button class="km-btn km-btn--danger km-btn--sm" id="btnClearHistory">Clear History</button>
+      </div>
+      <div class="km-table-wrap">
+        <table class="km-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>File</th>
+              <th>Severity</th>
+              <th>Type</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr class="km-table__empty">
+              <td colspan="5"><div class="km-empty">No history yet</div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="km-footer">
+    <p>Keymontr v1.0.0 — Powered by Gitleaks Rules + StringGroup Research</p>
+    <p class="km-footer__updated">Last updated: <span id="lastUpdated">—</span></p>
+  </footer>
+
+  <script nonce="{{NONCE}}" src="{{DASHBOARD_JS_URI}}"></script>
+</body>
+</html>

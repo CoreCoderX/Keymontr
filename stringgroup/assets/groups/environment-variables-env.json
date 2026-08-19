@@ -1,0 +1,26 @@
+{
+  "name": "Environment Variables (.env)",
+  "keywords": [
+    "SSH_PASSWORD",
+    "ssh_password",
+    "sshPassword",
+    "SshPassword",
+    "ssh-password",
+    "SSH-PASSWORD",
+    "ssh.password",
+    "sshpassword",
+    "SSHPASSWORD",
+    "certificate",
+    "CERTIFICATE",
+    "Certificate",
+    "KEY_SECRET",
+    "key_secret",
+    "keySecret",
+    "KeySecret",
+    "key-secret",
+    "KEY-SECRET",
+    "key.secret",
+    "keysecret",
+    "KEYSECRET"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "$schema": "./schemas/keymontr-config.schema.json",
+  "version": 1,
+
+  "detection": {
+    "sensitivity": "balanced",
+    "minimumConfidenceToWarn": 0.40,
+    "debounceMs": 300,
+
+    "weights": {
+      "regex": 0.35,
+      "entropy": 0.20,
+      "context": 0.20,
+      "stringGroup": 0.15,
+      "fileContext": 0.10
+    },
+
+    "thresholds": {
+      "informational": 0.40,
+      "low": 0.55,
+      "medium": 0.65,
+      "high": 0.75,
+      "critical": 0.88
+    }
+  },
+
+  "git": {
+    "blockCommitOnCritical": true,
+    "blockCommitOnHigh": true,
+    "blockCommitOnMedium": false,
+    "enablePreCommitHook": true,
+    "hookInstallPath": ".git/hooks/pre-commit"
+  },
+
+  "ui": {
+    "enableSounds": false,
+    "soundTheme": "default",
+    "showStatusBar": true,
+    "showFileDecorations": true,
+    "inlineSeverityIcons": true,
+    "showConfidenceScore": true
+  },
+
+  "ignore": {
+    "paths": [],
+    "patterns": [],
+    "stopwords": [],
+    "useDefaultIgnorePaths": true,
+    "useDefaultStopwords": true
+  },
+
+  "customRules": [],
+
+  "remediation": {
+    "autoCreateEnvFile": true,
+    "autoUpdateGitignore": true,
+    "autoCreateEnvExample": true,
+    "preferredEnvFileName": ".env"
+  }
+}

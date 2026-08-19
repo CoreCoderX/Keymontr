@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CoreCoderX/Keymontr/blob/main/schemas/keymontr-config.schema.json",
+  "title": "Keymontr Configuration",
+  "description": "Configuration schema for .keymontr.json.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema used to validate this configuration file."
+    },
+
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Configuration schema version. Currently only 1 is supported."
+    },
+    "detection": {
+      "type": "object",
+      "description": "Detection engine configuration",
+      "properties": {
+        "sensitivity": {
+          "type": "string",
+          "enum": ["strict", "balanced", "relaxed"],
+          "description": "Overall detection sensitivity. 'strict' = more warnings, 'relaxed' = fewer warnings.",
+          "default": "balanced"
+        },
+        "minimumConfidenceToWarn": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0,
+          "description": "Minimum confidence score (0.0–1.0) required to show a warning.",
+          "default": 0.4
+        },
+        "debounceMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Milliseconds to wait after typing stops before running detection.",
+          "default": 300
+        },
+        "weights": {
+          "type": "object",
+          "description": "Weight of each detection layer in the confidence score calculation. Should sum to 1.0.",
+          "properties": {
+            "regex": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.35
+            },
+            "entropy": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.2
+            },
+            "context": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.2
+            },
+            "stringGroup": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.15
+            },
+            "fileContext": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.1
+            }
+          },
+          "additionalProperties": false
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "Confidence score thresholds for each severity level.",
+          "properties": {
+            "informational": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.4
+            },
+            "low": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.55
+            },
+            "medium": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.65
+            },
+            "high": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.75
+            },
+            "critical": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.88
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "git": {
+      "type": "object",
+      "description": "Git pre-commit hook configuration",
+      "properties": {
+        "blockCommitOnCritical": {
+          "type": "boolean",
+          "description": "Block git commits when critical secrets are detected.",
+          "default": true
+        },
+        "blockCommitOnHigh": {
+          "type": "boolean",
+          "description": "Block git commits when high-severity secrets are detected.",
+          "default": true
+        },
+        "blockCommitOnMedium": {
+          "type": "boolean",
+          "description": "Block git commits when medium-severity secrets are detected.",
+          "default": false
+        },
+        "enablePreCommitHook": {
+          "type": "boolean",
+          "description": "Whether to enable the Git pre-commit hook.",
+          "default": true
+        },
+        "hookInstallPath": {
+          "type": "string",
+          "description": "Path to install the pre-commit hook.",
+          "default": ".git/hooks/pre-commit"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ui": {
+      "type": "object",
+      "description": "User interface configuration",
+      "properties": {
+        "enableSounds": {
+          "type": "boolean",
+          "description": "Play a sound when secrets are detected or commits are blocked.",
+          "default": false
+        },
+        "soundTheme": {
+          "type": "string",
+          "enum": ["default", "minimal", "none"],
+          "description": "Sound theme for notifications.",
+          "default": "default"
+        },
+        "showStatusBar": {
+          "type": "boolean",
+          "description": "Show Keymontr status in the VS Code status bar.",
+          "default": true
+        },
+        "showFileDecorations": {
+          "type": "boolean",
+          "description": "Show risk badges on files in the Explorer sidebar.",
+          "default": true
+        },
+        "inlineSeverityIcons": {
+          "type": "boolean",
+          "description": "Show severity emoji icons in diagnostic messages.",
+          "default": true
+        },
+        "showConfidenceScore": {
+          "type": "boolean",
+          "description": "Show the confidence percentage in diagnostic messages.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ignore": {
+      "type": "object",
+      "description": "Paths and patterns to ignore during scanning",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for files/directories to exclude from scanning.",
+          "default": []
+        },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Regular expression patterns — strings matching any pattern are ignored.",
+          "default": []
+        },
+        "stopwords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Strings containing any stopword are treated as placeholders.",
+          "default": []
+        },
+        "useDefaultIgnorePaths": {
+          "type": "boolean",
+          "description": "Include Keymontr's built-in ignore paths (node_modules, dist, lock files, etc.).",
+          "default": true
+        },
+        "useDefaultStopwords": {
+          "type": "boolean",
+          "description": "Include Keymontr's built-in stopwords (example, dummy, placeholder, etc.).",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "customRules": {
+      "type": "array",
+      "description": "Custom secret detection rules specific to your organization.",
+      "items": {
+        "type": "object",
+        "required": ["id", "regex"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this rule.",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of what this rule detects."
+          },
+          "regex": {
+            "type": "string",
+            "description": "Regular expression pattern to match the secret."
+          },
+          "entropy": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 8,
+            "description": "Minimum Shannon entropy threshold for matches."
+          },
+          "keywords": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Pre-filter keywords that must appear on the line before regex is tested."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["informational", "low", "medium", "high", "critical"],
+            "description": "Fixed severity level for this rule (overrides confidence scoring)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "remediation": {
+      "type": "object",
+      "description": "Auto-fix and remediation configuration",
+      "properties": {
+        "autoCreateEnvFile": {
+          "type": "boolean",
+          "description": "Automatically create .env if it does not exist during auto-fix.",
+          "default": true
+        },
+        "autoUpdateGitignore": {
+          "type": "boolean",
+          "description": "Automatically add .env patterns to .gitignore during auto-fix.",
+          "default": true
+        },
+        "autoCreateEnvExample": {
+          "type": "boolean",
+          "description": "Automatically add placeholder entries to .env.example during auto-fix.",
+          "default": true
+        },
+        "preferredEnvFileName": {
+          "type": "string",
+          "description": "Name of the environment file to use (e.g. '.env', '.env.local').",
+          "default": ".env"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

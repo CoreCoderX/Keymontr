@@ -1,0 +1,11 @@
+{
+  "name": "stripe-access-token",
+  "keywords": [
+    "sk_test",
+    "sk_live",
+    "sk_prod",
+    "rk_test",
+    "rk_live",
+    "rk_prod"
+  ]
+}
