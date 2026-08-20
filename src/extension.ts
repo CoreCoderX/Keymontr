@@ -106,6 +106,7 @@ export async function activate(
   const hoverProvider = new KeymontrHoverProvider();
   const decorationProvider = new KeymontrDecorationProvider();
   const treeProvider = new KeymontrTreeDataProvider();
+  treeProvider.updateIgnored(memoryStore.getAllIgnored());
   const statusBar = new StatusBarManager();
 
   context.subscriptions.push(diagnosticProvider);
@@ -167,6 +168,9 @@ export async function activate(
 
   const gitHookManager = new GitHookManager(workspaceRoot);
 
+  // ── AI Assistant Detection ────────────────────────────────────────────────
+  const aiDetector = new AIAssistantDetector(context);
+
   // ── Commands ───────────────────────────────────────────────────────────────
   const commandRegistry = new CommandRegistry(
     context,
@@ -181,6 +185,7 @@ export async function activate(
     cfg,
     workspaceRoot,
     dbManager,
+    aiDetector,
   );
   commandRegistry.registerAll();
 
@@ -299,7 +304,6 @@ export async function activate(
   }
 
   // ── AI Assistant Notice ────────────────────────────────────────────────────
-  const aiDetector = new AIAssistantDetector(context);
   setTimeout(() => {
     void aiDetector.showNoticeIfNeeded();
   }, 3000); // Delay to not interrupt activation
@@ -408,8 +412,9 @@ async function scanFile(
     // Update tree view
     treeProvider.updateFindings(fileUri, result.findings);
 
-    // Update the open dashboard panel (no-op when closed)
-    DashboardPanel.updateFindingsIfOpen(result.findings);
+    // Refresh the open dashboard panel with the FULL set of findings so the
+    // UI stays live as new secrets are found (no manual reopen needed).
+    DashboardPanel.refreshIfOpen(treeProvider.getAllFindings());
 
     // Update file decoration
     const highestSeverity = getHighestSeverity(result.findings);
@@ -423,9 +428,16 @@ async function scanFile(
       statusBar.showFindings(totalFindings, highestSeverity);
     }
 
-    // Record new findings in history
+    // Record NEW findings in history (re-scans of unchanged secrets must not
+    // inflate the totals — the cache keyed by fileUri holds the previous scan).
+    const prevResult = resultCache.get(fileUri);
+    const prevKeys = new Set(
+      (prevResult?.findings ?? []).map((f) => f.suppression.suppressionKey),
+    );
     for (const finding of result.findings) {
-      await historyStore.recordDetection(finding);
+      if (!prevKeys.has(finding.suppression.suppressionKey)) {
+        await historyStore.recordDetection(finding);
+      }
     }
 
     // Cache result for this file

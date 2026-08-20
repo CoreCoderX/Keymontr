@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { SecretFinding } from "../../core/types/SecretFinding.js";
+import * as path from "path";
+import { SecretFinding, SuppressionRecord } from "../../core/types/SecretFinding.js";
 import {
   SeverityLevel,
   SEVERITY_THEME_COLORS,
@@ -13,6 +14,7 @@ interface FindingsTreeItem {
   label: string;
   severity?: SeverityLevel;
   finding?: SecretFinding;
+  ignored?: SuppressionRecord & { kind: "permanent" | "session" };
   children?: FindingsTreeItem[];
 }
 
@@ -37,6 +39,21 @@ export class KeymontrTreeDataProvider implements vscode.TreeDataProvider<Finding
   // All current findings across all files
   private allFindings: Map<string, SecretFinding[]> = new Map();
 
+  // Ignored (suppressed) entries shown in the "Ignored" group
+  private ignoredItems: Array<
+    SuppressionRecord & { kind: "permanent" | "session" }
+  > = [];
+
+  /**
+   * Updates the ignored/suppressed entries shown in the tree.
+   */
+  public updateIgnored(
+    items: Array<SuppressionRecord & { kind: "permanent" | "session" }>,
+  ): void {
+    this.ignoredItems = items;
+    this._onDidChangeTreeData.fire();
+  }
+
   /**
    * Updates findings for a specific file and refreshes the tree.
    */
@@ -50,10 +67,36 @@ export class KeymontrTreeDataProvider implements vscode.TreeDataProvider<Finding
   }
 
   /**
+   * Removes a single finding (e.g. after it was marked safe / ignored)
+   * and refreshes the tree.
+   */
+  public removeFinding(findingId: string): void {
+    for (const [fileUri, findings] of this.allFindings) {
+      const remaining = findings.filter((f) => f.id !== findingId);
+      if (remaining.length !== findings.length) {
+        if (remaining.length === 0) {
+          this.allFindings.delete(fileUri);
+        } else {
+          this.allFindings.set(fileUri, remaining);
+        }
+        this._onDidChangeTreeData.fire();
+        return;
+      }
+    }
+  }
+
+  /**
    * Returns all current findings across all scanned files.
    */
   public getAllFindings(): SecretFinding[] {
     return Array.from(this.allFindings.values()).flat();
+  }
+
+  /**
+   * Returns the findings currently tracked for a specific file.
+   */
+  public getFindingsForFile(fileUri: string): SecretFinding[] {
+    return this.allFindings.get(fileUri) ?? [];
   }
 
   /**
@@ -130,6 +173,20 @@ export class KeymontrTreeDataProvider implements vscode.TreeDataProvider<Finding
       }
     }
 
+    // Ignored group — permanently suppressed + session-only suppressions
+    if (this.ignoredItems.length > 0) {
+      const ignoredChildren: FindingsTreeItem[] = this.ignoredItems.map((s) => ({
+        type: "finding",
+        label: `${path.basename(s.fileUri)}:${(s.lineNumber ?? 0) + 1}`,
+        ignored: s,
+      }));
+      items.push({
+        type: "severity-group",
+        label: `Ignored (${this.ignoredItems.length})`,
+        children: ignoredChildren,
+      });
+    }
+
     return items;
   }
 
@@ -158,6 +215,16 @@ export class KeymontrTreeDataProvider implements vscode.TreeDataProvider<Finding
       item.label,
       vscode.TreeItemCollapsibleState.Expanded,
     );
+
+    if (item.label.startsWith("Ignored")) {
+      treeItem.contextValue = "ignored-group";
+      treeItem.iconPath = new vscode.ThemeIcon(
+        "check",
+        new vscode.ThemeColor("charts.green"),
+      );
+      return treeItem;
+    }
+
     treeItem.contextValue = "severity-group";
 
     // Native severity indicator: a filled circle colored by the theme.
@@ -172,6 +239,43 @@ export class KeymontrTreeDataProvider implements vscode.TreeDataProvider<Finding
   }
 
   private buildFindingItem(item: FindingsTreeItem): vscode.TreeItem {
+    const ignored = item.ignored;
+    if (ignored !== undefined) {
+      const treeItem = new vscode.TreeItem(
+        item.label,
+        vscode.TreeItemCollapsibleState.None,
+      );
+      const kind = ignored.kind === "session" ? "Ignored for session" : "Suppressed";
+      const rule = ignored.ruleId ?? "unknown rule";
+      const reason = ignored.reason ?? "no reason given";
+
+      treeItem.description = kind;
+      treeItem.tooltip = new vscode.MarkdownString(
+        `**${kind}**\n\nRule: \`${rule}\`\n\nReason: ${reason}`,
+      );
+      treeItem.command = {
+        title: "Go to suppressed line",
+        command: "vscode.open",
+        arguments: [
+          vscode.Uri.file(ignored.fileUri),
+          {
+            selection: new vscode.Range(
+              ignored.lineNumber ?? 0,
+              0,
+              ignored.lineNumber ?? 0,
+              0,
+            ),
+          },
+        ],
+      };
+      treeItem.contextValue = "ignored";
+      treeItem.iconPath = new vscode.ThemeIcon(
+        "mute",
+        new vscode.ThemeColor("charts.green"),
+      );
+      return treeItem;
+    }
+
     const finding = item.finding;
     if (finding === undefined) {
       return new vscode.TreeItem(item.label);

@@ -9,7 +9,7 @@
 
   // ── State ───────────────────────────────────────────────────────────────────
 
-  /** @type {{ findings: any[], history: any[], stats: any, dbHealth: any, gitHookInstalled: boolean }} */
+  /** @type {{ findings: any[], history: any[], stats: any, dbHealth: any, gitHookInstalled: boolean, ignoredKeys: any[], aiAgents: any[] }} */
   let state = {
     findings: [],
     history: [],
@@ -24,6 +24,8 @@
     },
     dbHealth: null,
     gitHookInstalled: false,
+    ignoredKeys: [],
+    aiAgents: [],
   };
 
   let filterSeverity = "all";
@@ -45,6 +47,8 @@
   document.addEventListener("DOMContentLoaded", () => {
     bindButtons();
     bindFilters();
+    bindNav();
+    bindSearchShortcuts();
     requestInitialData();
   });
 
@@ -110,6 +114,53 @@
     }
   }
 
+  function bindNav() {
+    const nav = el("sidebarNav");
+    if (!nav) return;
+
+    const links = Array.from(nav.querySelectorAll(".km-nav__item"));
+    const setActive = (href) => {
+      links.forEach((link) =>
+        link.classList.toggle("is-active", link.getAttribute("href") === href),
+      );
+    };
+
+    links.forEach((link) =>
+      link.addEventListener("click", () => setActive(link.getAttribute("href"))),
+    );
+
+    const sections = ["overview", "findings", "ignored", "history"]
+      .map((id) => el(id))
+      .filter(Boolean);
+
+    if (sections.length && "IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries.filter((entry) => entry.isIntersecting);
+          if (visible.length) setActive("#" + visible[0].target.id);
+        },
+        { rootMargin: "-40% 0px -55% 0px" },
+      );
+      sections.forEach((section) => observer.observe(section));
+    }
+  }
+
+  function bindSearchShortcuts() {
+    document.addEventListener("keydown", (event) => {
+      const search = el("searchInput");
+      if (!search) return;
+      const mod = event.ctrlKey || event.metaKey;
+      const isShortcut = mod && event.key.toLowerCase() === "k";
+      const isSlash = event.key === "/" && document.activeElement !== search;
+      if (isShortcut || isSlash) {
+        event.preventDefault();
+        search.focus();
+      } else if (event.key === "Escape" && document.activeElement === search) {
+        search.blur();
+      }
+    });
+  }
+
   function requestInitialData() {
     postCommand("requestData");
   }
@@ -124,29 +175,9 @@
       case "updateData":
         handleUpdateData(message.payload);
         break;
-      case "updateFindings":
-        state.findings = message.payload ?? [];
-        renderStatus();
-        renderDonutChart();
-        renderFindingsTable();
-        break;
-      case "updateStats":
-        state.stats = message.payload ?? state.stats;
-        renderStats();
-        renderTypesBars();
-        break;
-      case "updateHistory":
-        state.history = message.payload ?? [];
-        renderHistoryTable();
-        renderSparkline();
-        break;
       case "updateGitHook":
         state.gitHookInstalled = message.payload === true;
         renderGitStatus();
-        break;
-      case "updateDbHealth":
-        state.dbHealth = message.payload;
-        renderDbHealth();
         break;
       default:
         break;
@@ -165,6 +196,12 @@
     if (typeof payload.gitHookInstalled === "boolean") {
       state.gitHookInstalled = payload.gitHookInstalled;
     }
+    if (Array.isArray(payload.ignoredKeys)) {
+      state.ignoredKeys = payload.ignoredKeys;
+    }
+    if (Array.isArray(payload.aiAgents)) {
+      state.aiAgents = payload.aiAgents;
+    }
     renderAll();
   }
 
@@ -176,10 +213,12 @@
     renderDonutChart();
     renderFindingsTable();
     renderTypesBars();
+    renderIgnoredKeys();
     renderHistoryTable();
     renderSparkline();
     renderGitStatus();
     renderDbHealth();
+    renderAIAgents();
     updateLastUpdated();
   }
 
@@ -245,9 +284,13 @@
     const s = state.stats;
     const total = s.totalDetected ?? 0;
     const fixed = s.totalFixed ?? 0;
-    const suppressed = s.totalSuppressed ?? 0;
-    const active = Math.max(0, total - fixed - suppressed);
     const blocked = s.commitsBlocked ?? 0;
+
+    // "Active" reflects the CURRENT state (live findings / current ignores),
+    // matching the sidebar. Lifetime counters (total/fixed/blocked) come
+    // from statistics.
+    const active = state.findings.filter((f) => !f.isFixed).length;
+    const suppressed = (state.ignoredKeys ?? []).length;
 
     setText("statTotal", total);
     setText("statFixed", fixed);
@@ -255,7 +298,7 @@
     setText("statSuppressed", suppressed);
     setText("statBlocked", blocked);
 
-    setText("heroActive", state.findings.filter((f) => !f.isFixed).length);
+    setText("heroActive", active);
     setText("heroFixed", fixed);
     setText("heroSuppressed", suppressed);
     setText("heroBlocked", blocked);
@@ -269,7 +312,13 @@
     const totalEl = el("donutTotal");
     if (!svg || !legend) return;
 
-    const bySev = state.stats.bySeverity ?? {};
+    // Risk distribution reflects the CURRENT live findings so the donut
+    // matches the sidebar (not the lifetime statistics).
+    const bySev = {};
+    for (const f of state.findings) {
+      const sev = String(f.severity ?? "informational");
+      bySev[sev] = (bySev[sev] ?? 0) + 1;
+    }
     const total = SEVERITY_ORDER.reduce((sum, s) => sum + (bySev[s] ?? 0), 0);
 
     if (totalEl) totalEl.textContent = String(total);
@@ -295,7 +344,7 @@
     }
 
     svg.innerHTML =
-      `<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--input)" stroke-width="13" />` +
+      `<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--border-soft)" stroke-width="13" />` +
       svgInner;
 
     // Legend
@@ -327,7 +376,15 @@
     const countEl = el("typesCount");
     if (!bars) return;
 
-    const byType = state.stats.byType ?? {};
+    // Secret types reflect the CURRENT live findings (consistent with the
+    // risk distribution), not the lifetime statistics.
+    const byType = {};
+    for (const f of state.findings) {
+      const type = String(
+        f.detection?.matchedRuleId ?? f.detection?.matchedGroup ?? "unknown",
+      );
+      byType[type] = (byType[type] ?? 0) + 1;
+    }
     const entries = Object.entries(byType)
       .sort((a, b) => Number(b[1]) - Number(a[1]))
       .slice(0, 8);
@@ -386,7 +443,7 @@
     if (filtered.length === 0) {
       tbody.innerHTML = `
         <tr class="km-table__empty">
-          <td colspan="6">
+          <td colspan="5">
             <div class="km-empty">${
               state.findings.length === 0
                 ? "No active findings"
@@ -410,7 +467,6 @@
             f.detection?.matchedGroup ??
             "Unknown",
         );
-        const findingId = String(f.id ?? "");
 
         return `
         <tr>
@@ -426,10 +482,6 @@
               </div>
               <span class="km-confidence__label">${confPct}%</span>
             </div>
-          </td>
-          <td class="km-table__right-actions">
-            <button class="km-action" onclick="fixFinding('${escHtml(findingId)}')">Fix</button>
-            <button class="km-action km-action--danger" onclick="markSafe('${escHtml(findingId)}')">Safe</button>
           </td>
         </tr>`;
       })
@@ -548,6 +600,86 @@
     }
   }
 
+  // ── Ignored keys ─────────────────────────────────────────────────────────────
+
+  function renderIgnoredKeys() {
+    const tbody = el("ignoredTableBody");
+    const countEl = el("ignoredCount");
+    if (!tbody) return;
+
+    const keys = state.ignoredKeys ?? [];
+
+    if (countEl) {
+      countEl.textContent = `${keys.length} ignored`;
+    }
+
+    if (keys.length === 0) {
+      tbody.innerHTML = `
+        <tr class="km-table__empty">
+          <td colspan="6"><div class="km-empty">No ignored keys</div></td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = keys
+      .map((k) => {
+        const sev = String(k.severity ?? "informational");
+        const line = Number(k.lineNumber ?? 0) + 1;
+        const ruleName = String(k.ruleName ?? "—");
+        const reason = String(k.reason ?? "—");
+        const kind = k.kind === "session" ? "session" : "permanent";
+        const kindLabel = kind === "session" ? "Session" : "Permanent";
+        return `
+        <tr>
+          <td><span class="km-mono">${escHtml(String(k.fileName ?? "unknown"))}</span></td>
+          <td>${escHtml(String(line))}</td>
+          <td><span class="km-badge km-badge--${escHtml(sev)}">${escHtml(sev)}</span></td>
+          <td>${escHtml(ruleName)}</td>
+          <td><span class="km-badge km-badge--soft">${escHtml(kindLabel)}</span> ${escHtml(reason)}</td>
+          <td>${escHtml(formatDate(k.ignoredAt))}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  // ── AI assistants ─────────────────────────────────────────────────────────────
+
+  function renderAIAgents() {
+    const list = el("aiList");
+    const countEl = el("aiCount");
+    if (!list) return;
+
+    const agents = (state.aiAgents ?? []).filter((a) => a.installed);
+
+    if (countEl) {
+      const activeCount = agents.filter((a) => a.active).length;
+      countEl.textContent = `${activeCount} active`;
+    }
+
+    if (agents.length === 0) {
+      list.innerHTML = `<div class="km-empty km-empty--compact">None detected</div>`;
+      return;
+    }
+
+    list.innerHTML = agents
+      .map((agent) => {
+        const name = String(agent.name ?? agent.id ?? "Unknown");
+        const vendor = agent.vendor ? String(agent.vendor) : "";
+        return `
+        <div class="km-ai__row">
+          <span class="km-ai__dot ${agent.active ? "km-ai__dot--active" : ""}"></span>
+          <div class="km-ai__info">
+            <span class="km-ai__name">${escHtml(name)}</span>
+            ${vendor ? `<span class="km-ai__meta">${escHtml(vendor)}</span>` : ""}
+          </div>
+          <span class="km-ai__tag ${agent.active ? "km-ai__tag--active" : ""}">${
+            agent.active ? "Active" : "Installed"
+          }</span>
+        </div>`;
+      })
+      .join("");
+  }
+
   // ── Git protection ──────────────────────────────────────────────────────────
 
   function renderGitStatus() {
@@ -592,7 +724,7 @@
         db1Detail.textContent = `${health.db1.ruleCount ?? 0} rules`;
       } else {
         db1Status.textContent = "Error";
-        db1Status.className = "km-badge km-badge--critical";
+        db1Status.className = "km-badge km-badge--danger";
         db1Detail.textContent = health.db1?.error ?? "Unknown error";
       }
     }
@@ -604,7 +736,7 @@
         db2Detail.textContent = `${health.db2.keywordCount ?? 0} identifiers`;
       } else {
         db2Status.textContent = "Error";
-        db2Status.className = "km-badge km-badge--critical";
+        db2Status.className = "km-badge km-badge--danger";
         db2Detail.textContent = health.db2?.error ?? "Unknown error";
       }
     }
@@ -616,16 +748,7 @@
   }
 
   // ── Global action functions (called from onclick in table) ──────────────────
-
-  /** @param {string} findingId */
-  window.fixFinding = function (findingId) {
-    postCommand("fixFinding", { findingId });
-  };
-
-  /** @param {string} findingId */
-  window.markSafe = function (findingId) {
-    postCommand("markSafe", { findingId });
-  };
+// (No actions in the findings table — ignore/fix are done from the editor.)
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 

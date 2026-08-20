@@ -135,7 +135,10 @@ export class RemediationOrchestrator {
     }
 
     // ── Mark as fixed in history ───────────────────────────────────────────
-    await this.historyStore.markFixed(finding.id);
+    await this.historyStore.markFixed(
+      finding.id,
+      finding.suppression.suppressionKey,
+    );
 
     const allSuccess = steps.every((s) => s.success);
 

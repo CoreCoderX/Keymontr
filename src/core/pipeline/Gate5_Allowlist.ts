@@ -59,6 +59,7 @@ const GLOBAL_STOPWORDS: string[] = [
 // Inline suppression comment patterns
 const INLINE_IGNORE_PATTERNS: RegExp[] = [
   /keymontr-ignore/i,
+  /secureshield-ignore/i,
   /nosec\b/i,
   /noqa\b/i,
   /pragma:\s*allowlist\s+secret/i,

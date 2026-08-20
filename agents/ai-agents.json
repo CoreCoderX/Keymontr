@@ -1,0 +1,167 @@
+{
+  "$comment": "Keymontr AI agent registry. Detected via vscode.extensions.getExtension(id). Loaded at runtime from <extensionRoot>/agents/ai-agents.json by src/ai/AIAssistantDetector.ts. Keep ids as exact VS Code marketplace publisher.name values.",
+  "version": 1,
+  "agents": [
+    {
+      "id": "GitHub.copilot",
+      "name": "GitHub Copilot",
+      "vendor": "GitHub",
+      "category": "completion",
+      "url": "https://github.com/features/copilot"
+    },
+    {
+      "id": "GitHub.copilot-chat",
+      "name": "GitHub Copilot Chat",
+      "vendor": "GitHub",
+      "category": "chat",
+      "url": "https://github.com/features/copilot"
+    },
+    {
+      "id": "GitHub.copilot-labs",
+      "name": "GitHub Copilot Labs",
+      "vendor": "GitHub",
+      "category": "experiments",
+      "url": "https://github.com/features/copilot"
+    },
+    {
+      "id": "Anthropic.claude-code",
+      "name": "Claude Code",
+      "vendor": "Anthropic",
+      "category": "agent",
+      "url": "https://claude.com/claude-code"
+    },
+    {
+      "id": "Google.geminicodeassist",
+      "name": "Gemini Code Assist",
+      "vendor": "Google",
+      "category": "completion",
+      "url": "https://codeassist.google"
+    },
+    {
+      "id": "Google.gemini",
+      "name": "Gemini in VS Code",
+      "vendor": "Google",
+      "category": "chat",
+      "url": "https://gemini.google.com"
+    },
+    {
+      "id": "AmazonWebServices.amazon-q-vscode",
+      "name": "Amazon Q Developer",
+      "vendor": "Amazon Web Services",
+      "category": "agent",
+      "url": "https://aws.amazon.com/q/developer"
+    },
+    {
+      "id": "AmazonWebServices.aws-toolkit-vscode",
+      "name": "AWS Toolkit (CodeWhisperer)",
+      "vendor": "Amazon Web Services",
+      "category": "completion",
+      "url": "https://aws.amazon.com/toolkit-for-visual-studio-code"
+    },
+    {
+      "id": "Continue.continue",
+      "name": "Continue",
+      "vendor": "Continue Dev",
+      "category": "agent",
+      "url": "https://continue.dev"
+    },
+    {
+      "id": "Codeium.codeium",
+      "name": "Windsurf Plugin (Codeium)",
+      "vendor": "Windsurf",
+      "category": "completion",
+      "url": "https://windsurf.com"
+    },
+    {
+      "id": "TabNine.tabnine-vscode",
+      "name": "Tabnine",
+      "vendor": "Tabnine",
+      "category": "completion",
+      "url": "https://www.tabnine.com"
+    },
+    {
+      "id": "Sourcegraph.cody-ai",
+      "name": "Cody AI",
+      "vendor": "Sourcegraph",
+      "category": "chat",
+      "url": "https://sourcegraph.com/cody"
+    },
+    {
+      "id": "saoudrizwan.claude-dev",
+      "name": "Cline",
+      "vendor": "Cline Bot",
+      "category": "agent",
+      "url": "https://cline.bot"
+    },
+    {
+      "id": "SuperMaven.supermaven",
+      "name": "Supermaven",
+      "vendor": "Supermaven",
+      "category": "completion",
+      "url": "https://supermaven.com"
+    },
+    {
+      "id": "Blackboxapp.blackbox",
+      "name": "Blackbox AI",
+      "vendor": "Blackbox",
+      "category": "completion",
+      "url": "https://blackbox.dev"
+    },
+    {
+      "id": "Bito.bito",
+      "name": "Bito AI",
+      "vendor": "Bito",
+      "category": "chat",
+      "url": "https://bito.ai"
+    },
+    {
+      "id": "ChatGPT.chatgpt",
+      "name": "ChatGPT",
+      "vendor": "OpenAI",
+      "category": "agent",
+      "url": "https://openai.com/chatgpt"
+    },
+    {
+      "id": "qwenlm.qwen-code-vscode-ide-companion",
+      "name": "Qwen Code Companion",
+      "vendor": "Qwen",
+      "category": "agent",
+      "url": "https://qwenlm.github.io"
+    },
+    {
+      "id": "codestory.codestory",
+      "name": "CodeStory (Aide)",
+      "vendor": "CodeStory",
+      "category": "agent",
+      "url": "https://www.codestory.ai"
+    },
+    {
+      "id": "CodeGPT.codgpt",
+      "name": "CodeGPT",
+      "vendor": "CodeGPT",
+      "category": "chat",
+      "url": "https://codegpt.co"
+    },
+    {
+      "id": "RooVeterinaryInc.roo-cline",
+      "name": "Roo Code",
+      "vendor": "Roo",
+      "category": "agent",
+      "url": "https://roocode.com"
+    },
+    {
+      "id": "kortix.kortix",
+      "name": "Kortix AI",
+      "vendor": "Kortix",
+      "category": "agent",
+      "url": "https://kortix.ai"
+    },
+    {
+      "id": "ai.hackteam",
+      "name": "AI Assistant",
+      "vendor": "Hackteam",
+      "category": "chat",
+      "url": "https://hackteam.ai"
+    }
+  ]
+}

@@ -90,9 +90,12 @@ export interface PipelineResult {
 export interface SuppressionRecord {
   suppressionKey: string;
   fileUri: string;
+  /** Zero-based line number of the suppressed finding. */
+  lineNumber?: number;
   lineContent: string;
   ruleId?: string;
-  severity: SeverityLevel;
+  /** Severity of the suppressed finding. Absent when unknown (e.g. session-only). */
+  severity?: SeverityLevel;
   suppressedAt: Date;
   reason?: string;
   expiresAt?: Date;

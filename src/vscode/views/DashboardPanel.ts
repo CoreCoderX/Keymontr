@@ -3,9 +3,11 @@ import * as path from "path";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import { SecretHistoryStore } from "../../storage/SecretHistoryStore.js";
+import { DeveloperMemoryStore } from "../../storage/DeveloperMemoryStore.js";
 import { GitHookManager } from "../../git/GitHookManager.js";
 import { DatabaseManager } from "../../database/DatabaseManager.js";
 import { SecretFinding } from "../../core/types/SecretFinding.js";
+import { AIAssistantDetector } from "../../ai/AIAssistantDetector.js";
 
 /**
  * DashboardPanel — Manages the Keymontr webview dashboard.
@@ -24,8 +26,10 @@ export class DashboardPanel {
     panel: vscode.WebviewPanel,
     private readonly extensionUri: vscode.Uri,
     private readonly historyStore: SecretHistoryStore,
+    private readonly memoryStore: DeveloperMemoryStore,
     private readonly gitHookManager: GitHookManager,
     private readonly dbManager: DatabaseManager,
+    private readonly aiDetector: AIAssistantDetector,
     private activeFindings: SecretFinding[] = [],
   ) {
     this.panel = panel;
@@ -46,8 +50,10 @@ export class DashboardPanel {
   public static createOrShow(
     extensionUri: vscode.Uri,
     historyStore: SecretHistoryStore,
+    memoryStore: DeveloperMemoryStore,
     gitHookManager: GitHookManager,
     dbManager: DatabaseManager,
+    aiDetector: AIAssistantDetector,
     activeFindings: SecretFinding[] = [],
   ): DashboardPanel {
     const column =
@@ -84,8 +90,10 @@ export class DashboardPanel {
       panel,
       extensionUri,
       historyStore,
+      memoryStore,
       gitHookManager,
       dbManager,
+      aiDetector,
       activeFindings,
     );
 
@@ -93,20 +101,23 @@ export class DashboardPanel {
   }
 
   /**
-   * Updates the active findings shown in the dashboard.
+   * Pushes the full dataset to the open dashboard panel (no-op if closed).
+   * Called whenever findings change so the UI stays live without reopening.
    */
-  public updateFindings(findings: SecretFinding[]): void {
-    this.activeFindings = findings;
-    this.postMessage("updateFindings", findings);
+  public static refreshIfOpen(findings?: SecretFinding[]): void {
+    if (DashboardPanel.currentPanel !== undefined) {
+      DashboardPanel.currentPanel.refresh(findings);
+    }
   }
 
   /**
-   * Updates the active findings on the open dashboard panel (no-op if closed).
+   * Refreshes the panel with the latest findings and pushes all data.
    */
-  public static updateFindingsIfOpen(findings: SecretFinding[]): void {
-    if (DashboardPanel.currentPanel !== undefined) {
-      DashboardPanel.currentPanel.updateFindings(findings);
+  public refresh(findings?: SecretFinding[]): void {
+    if (findings !== undefined) {
+      this.activeFindings = findings;
     }
+    this.pushData();
   }
 
   /**
@@ -168,12 +179,37 @@ export class DashboardPanel {
     const dbHealth = this.dbManager.getHealthReport();
     const gitHookInstalled = this.gitHookManager.isHookInstalled();
 
+    // Ignored keys = permanent suppressions (marked as safe) plus session-only
+    // ignores (live until restart). Raw line content is deliberately NOT sent
+    // — never ship secret values to the UI.
+    const ignoredKeys = this.memoryStore
+      .getAllIgnored()
+      .sort(
+        (a, b) =>
+          new Date(b.suppressedAt).getTime() -
+          new Date(a.suppressedAt).getTime(),
+      )
+      .map((s) => ({
+        fileUri: s.fileUri,
+        fileName: path.basename(s.fileUri),
+        lineNumber: s.lineNumber ?? 0,
+        severity: s.severity,
+        ruleName: s.ruleId ?? undefined,
+        reason: s.reason ?? undefined,
+        ignoredAt: s.suppressedAt,
+        kind: s.kind,
+      }));
+
+    const aiAgents = this.aiDetector.getInstalledAssistants();
+
     this.postMessage("updateData", {
       findings: this.activeFindings,
       history: history.slice(0, 100),
       stats,
       dbHealth,
       gitHookInstalled,
+      ignoredKeys,
+      aiAgents,
     });
   }
 
@@ -219,44 +255,6 @@ export class DashboardPanel {
               this.gitHookManager.isHookInstalled(),
             );
           });
-        break;
-
-      case "fixFinding":
-        if (
-          message.payload !== null &&
-          typeof message.payload === "object" &&
-          "findingId" in (message.payload as Record<string, unknown>)
-        ) {
-          const findingId = String(
-            (message.payload as Record<string, unknown>)["findingId"],
-          );
-          const finding = this.activeFindings.find((f) => f.id === findingId);
-          if (finding !== undefined) {
-            void vscode.commands.executeCommand(
-              "keymontr.fixSecret",
-              finding,
-            );
-          }
-        }
-        break;
-
-      case "markSafe":
-        if (
-          message.payload !== null &&
-          typeof message.payload === "object" &&
-          "findingId" in (message.payload as Record<string, unknown>)
-        ) {
-          const findingId = String(
-            (message.payload as Record<string, unknown>)["findingId"],
-          );
-          const finding = this.activeFindings.find((f) => f.id === findingId);
-          if (finding !== undefined) {
-            void vscode.commands.executeCommand(
-              "keymontr.markAsSafe",
-              finding,
-            );
-          }
-        }
         break;
 
       default:

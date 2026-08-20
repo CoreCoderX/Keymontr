@@ -27,8 +27,8 @@ export interface Gate8Result {
 export class Gate8_DeveloperMemory {
   // Permanent suppressions: key → record
   private permanentSuppressions: Map<string, SuppressionRecord> = new Map();
-  // Session suppressions: just the keys
-  private sessionSuppressions: Set<string> = new Set();
+  // Session suppressions: key → record (in-memory only, cleared on restart)
+  private sessionSuppressions: Map<string, SuppressionRecord> = new Map();
 
   /**
    * Checks whether a finding is suppressed.
@@ -71,11 +71,13 @@ export class Gate8_DeveloperMemory {
     }
 
     // Check session suppressions
-    if (this.sessionSuppressions.has(key)) {
+    const sessionRecord = this.sessionSuppressions.get(key);
+    if (sessionRecord !== undefined) {
       return {
         isSuppressed: true,
         suppressionType: "session",
         suppressionKey: key,
+        record: sessionRecord,
       };
     }
 
@@ -108,6 +110,7 @@ export class Gate8_DeveloperMemory {
     const record: SuppressionRecord = {
       suppressionKey: key,
       fileUri,
+      lineNumber,
       lineContent,
       severity,
       suppressedAt: new Date(),
@@ -128,6 +131,7 @@ export class Gate8_DeveloperMemory {
     lineNumber: number,
     lineContent: string,
     ruleId?: string,
+    severity?: SeverityLevel,
   ): string {
     const key = generateSuppressionKey(
       fileUri,
@@ -135,7 +139,18 @@ export class Gate8_DeveloperMemory {
       lineContent,
       ruleId,
     );
-    this.sessionSuppressions.add(key);
+
+    const record: SuppressionRecord = {
+      suppressionKey: key,
+      fileUri,
+      lineNumber,
+      lineContent,
+      suppressedAt: new Date(),
+      ...(ruleId !== undefined ? { ruleId } : {}),
+      ...(severity !== undefined ? { severity } : {}),
+    };
+
+    this.sessionSuppressions.set(key, record);
     return key;
   }
 
@@ -180,6 +195,13 @@ export class Gate8_DeveloperMemory {
    */
   public get sessionCount(): number {
     return this.sessionSuppressions.size;
+  }
+
+  /**
+   * Returns all session suppression records (in-memory only).
+   */
+  public getSessionSuppressions(): SuppressionRecord[] {
+    return Array.from(this.sessionSuppressions.values());
   }
 
   /**

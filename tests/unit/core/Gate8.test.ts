@@ -95,6 +95,24 @@ describe("Gate8_DeveloperMemory", () => {
       expect(result.isSuppressed).toBe(true);
       expect(result.suppressionType).toBe("session");
     });
+
+    it("should store record metadata for the session suppression", () => {
+      memory.suppressForSession(
+        "/file.ts",
+        10,
+        'const key = "secret";',
+        "generic-api-key",
+        SeverityLevel.HIGH,
+      );
+
+      const records = memory.getSessionSuppressions();
+      expect(records).toHaveLength(1);
+      expect(records[0].fileUri).toBe("/file.ts");
+      expect(records[0].lineNumber).toBe(10);
+      expect(records[0].ruleId).toBe("generic-api-key");
+      expect(records[0].severity).toBe(SeverityLevel.HIGH);
+      expect(records[0].suppressedAt).toBeInstanceOf(Date);
+    });
   });
 
   describe("unsuppress()", () => {

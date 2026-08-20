@@ -11,6 +11,8 @@ import { Gate8_DeveloperMemory } from "../../core/pipeline/Gate8_DeveloperMemory
 import { KeymontrConfig } from "../../config/ConfigurationManager.js";
 import { DatabaseManager } from "../../database/DatabaseManager.js";
 import { DashboardPanel } from "../views/DashboardPanel.js";
+import { AIAssistantDetector } from "../../ai/AIAssistantDetector.js";
+import { SeverityLevel, SEVERITY_NUMERIC } from "../../core/types/SeverityLevel.js";
 
 /**
  * CommandRegistry — Registers all VS Code commands for Keymontr.
@@ -32,6 +34,7 @@ export class CommandRegistry {
     private readonly config: KeymontrConfig,
     private readonly workspaceRoot: string,
     private readonly dbManager: DatabaseManager,
+    private readonly aiDetector: AIAssistantDetector,
   ) {}
 
   /**
@@ -70,10 +73,31 @@ export class CommandRegistry {
   }
 
   /**
-   * Pushes the current findings to the open dashboard panel (no-op if closed).
+   * Pushes the full dashboard dataset (findings + stats + ignored keys + AI
+   * agents) to the open dashboard panel (no-op if closed).
    */
   private refreshDashboard(): void {
-    DashboardPanel.updateFindingsIfOpen(this.treeProvider.getAllFindings());
+    // Keep the sidebar "Ignored" group in sync with the store.
+    this.treeProvider.updateIgnored(this.memoryStore.getAllIgnored());
+    DashboardPanel.refreshIfOpen(this.treeProvider.getAllFindings());
+  }
+
+  /**
+   * Recomputes the Explorer risk badge for a file from the findings that are
+   * still active in the tree (after an ignore / fix removed some of them).
+   * Clears the badge entirely when no findings remain.
+   */
+  private recomputeFileRisk(fileUri: string): void {
+    const remaining = this.treeProvider.getFindingsForFile(fileUri);
+    const highest = remaining.reduce<SeverityLevel | null>(
+      (acc, finding) =>
+        acc === null ||
+        SEVERITY_NUMERIC[finding.severity] > SEVERITY_NUMERIC[acc]
+          ? finding.severity
+          : acc,
+      null,
+    );
+    this.decorationProvider.setFileRisk(fileUri, highest);
   }
 
   // ── Command Handlers ──────────────────────────────────────────────────────
@@ -103,8 +127,12 @@ export class CommandRegistry {
       this.diagnosticProvider.clearFile(vscode.Uri.file(outcome.envFilePath));
       this.decorationProvider.setFileRisk(outcome.envFilePath, null);
       this.treeProvider.updateFindings(outcome.envFilePath, []);
-      this.refreshDashboard();
     }
+
+    // The original source file may still contain other findings — recompute
+    // its Explorer badge instead of blindly clearing it.
+    this.recomputeFileRisk(finding.meta.fileUri);
+    this.refreshDashboard();
   }
 
   private async onMarkAsSafe(finding?: SecretFinding): Promise<void> {
@@ -129,8 +157,11 @@ export class CommandRegistry {
 
     await this.historyStore.recordSuppression();
 
-    // Clear the diagnostic for this finding
+    // Clear the diagnostic for this finding and drop it from the tree so it
+    // stops appearing as an active issue and shows up under "Ignored Keys".
     this.diagnosticProvider.clearFile(vscode.Uri.file(finding.meta.fileUri));
+    this.treeProvider.removeFinding(finding.id);
+    this.recomputeFileRisk(finding.meta.fileUri);
 
     await vscode.window.showInformationMessage(
       `Keymontr: Finding marked as safe and permanently suppressed.`,
@@ -148,9 +179,12 @@ export class CommandRegistry {
       finding.candidate.lineNumber,
       finding.candidate.line,
       finding.detection.matchedRuleId,
+      finding.severity,
     );
 
     this.diagnosticProvider.clearFile(vscode.Uri.file(finding.meta.fileUri));
+    this.treeProvider.removeFinding(finding.id);
+    this.recomputeFileRisk(finding.meta.fileUri);
     this.refreshDashboard();
   }
 
@@ -158,8 +192,10 @@ export class CommandRegistry {
     DashboardPanel.createOrShow(
       this.context.extensionUri,
       this.historyStore,
+      this.memoryStore,
       this.gitHookManager,
       this.dbManager,
+      this.aiDetector,
       this.treeProvider.getAllFindings(),
     );
   }

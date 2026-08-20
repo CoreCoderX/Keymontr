@@ -83,10 +83,24 @@ export class DeveloperMemoryStore {
   }
 
   /**
-   * Returns all active suppression records.
+   * Returns all active permanent suppression records.
    */
   public getAllSuppressions(): SuppressionRecord[] {
     return this.gate8.toPersistenceRecords();
+  }
+
+  /**
+   * Returns ALL currently ignored keys — permanent suppressions plus
+   * session-only suppressions (which do not survive a restart).
+   */
+  public getAllIgnored(): Array<SuppressionRecord & { kind: "permanent" | "session" }> {
+    const permanent = this.gate8
+      .toPersistenceRecords()
+      .map((r) => ({ ...r, kind: "permanent" as const }));
+    const session = this.gate8
+      .getSessionSuppressions()
+      .map((r) => ({ ...r, kind: "session" as const }));
+    return [...permanent, ...session];
   }
 
   /**

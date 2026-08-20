@@ -62,6 +62,11 @@ export class Uri {
     return uri;
   }
 
+  public static parse(value: string): Uri {
+    const pathMatch = value.match(/^[a-z]+:\/\/(.+)$/i);
+    return new Uri(pathMatch ? pathMatch[1] : value);
+  }
+
   public toString(): string {
     return `file://${this.fsPath}`;
   }
@@ -196,6 +201,11 @@ export const commands = {
   executeCommand: jest.fn().mockResolvedValue(undefined),
 };
 
+export const extensions = {
+  getExtension: jest.fn().mockReturnValue(undefined),
+  all: [] as unknown[],
+};
+
 export const languages = {
   createDiagnosticCollection: jest.fn().mockReturnValue({
     set: jest.fn(),
@@ -311,6 +321,7 @@ export default {
   window,
   workspace,
   commands,
+  extensions,
   languages,
   ExtensionContext,
   StatusBarAlignment,
